@@ -59,7 +59,7 @@ read:
       Tabnine, JetBrains AI, Bolt.new, Lovable and v0 — so the yield has
       already been taken. Note for any re-read: its tools.ts data file is a
       subset of the README, so diff both or the second half goes unseen.
-      Re-read the same day at the user's request and nothing had moved — its
+      Re-read the same day at the architect's request and nothing had moved — its
       last commit is 2026-08-09, five days before the first read — so the
       second pass went after what the first had not looked for. Two things
       came back. Its Related Resources section names five lists, four of them
@@ -87,7 +87,7 @@ read:
       Re-read 2026-08-30 after a 2026-08-21 push: 43 hosts now, and the two it
       gained over the first read are docs.bigmodel.cn and dash.cloudflare.com —
       second spellings of vendors already carried. The verdict is unchanged.
-      Re-read 2026-09-21 at the user's request: nothing pushed since
+      Re-read 2026-09-21 at the architect's request: nothing pushed since
       2026-08-21, and data.json's 16 providers are all carried. Its agent
       skill (free-llm-apis/SKILL.md) is behind the list it ships with — it
       still recommends GitHub Models, retired 2026-07-30, Cerebras, which the
@@ -232,7 +232,7 @@ read:
       signup credits, a 90-day 1M-token Tencent trial grant and outright paid
       tools. Most rows carry the maintainer's own referral code — the Freebuff,
       Kimi, Tencent and WorkBuddy links all do — which its CONTRIBUTING allows
-      on one condition, that "the deal is genuinely good for the user (same or
+      on one condition, that "the deal is genuinely good for the architect (same or
       better than the public price)", and which is a standing reason to read
       the vendor rather than the row. Its freshness badge is worth the same
       caution: it renders last_verified-2026--08 while the README's own line
