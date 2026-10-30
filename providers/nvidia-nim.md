@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'NVIDIA NIM (build.nvidia.com) free tier: limits, free models, verified 2026-10-08'
-description: 'Free endpoints for the models build.nvidia.com marks "Free Endpoint", open-weight models from several labs among them, called with a free NVIDIA Developer Program key at integrate.api.nvidia.com/v1 (OpenAI-compatible). Free models: kimi-k3, glm-5.3, glm-5.3-flash, nemotron-3-ultra…'
+title: 'NVIDIA NIM (build.nvidia.com) free tier: limits, free models, verified 2026-10-26'
+description: 'Free endpoints for the models build.nvidia.com marks "Free Endpoint", open-weight models from several labs among them, called with a free NVIDIA Developer Program key at integrate.api.nvidia.com/v1 (OpenAI-compatible). Free models: glm-5.3-flash, nemotron-3-ultra, laguna-xs-2.1, muse-glimmer-30b…'
 permalink: /providers/nvidia-nim/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: NVIDIA NIM (build.nvidia.com)
 ---
 
@@ -11,7 +11,7 @@ crumb: NVIDIA NIM (build.nvidia.com)
 
 # NVIDIA NIM (build.nvidia.com) free tier
 
-🔌 LLM APIs with free tier · no card · not offered in Russia, Pakistan, Bangladesh and 11 more places · **live** — last verified by a probe on 2026-10-08 · [build.nvidia.com](https://build.nvidia.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · not offered in Russia, Pakistan, Bangladesh and 11 more places · **live** — last verified by a probe on 2026-10-26 · [build.nvidia.com](https://build.nvidia.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -19,7 +19,7 @@ Free endpoints for the models build.nvidia.com marks "Free Endpoint", open-weigh
 
 ## Free models
 
-[`kimi-k3`](https://mvalentsev.github.io/awesome-free-ai-coding/models/kimi-k3/), [`glm-5.3`](https://mvalentsev.github.io/awesome-free-ai-coding/models/glm-5.3/), [`glm-5.3-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/glm-5.3-flash/), [`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`nemotron-3-super`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-super/), [`laguna-xs-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-xs-2.1/), [`muse-glimmer-30b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/muse-glimmer-30b/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), [`gemma-4-31b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemma-4-31b/), [`gpt-oss-20b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gpt-oss-20b/), [`nemotron-3-nano-omni`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-omni/), [`diffusiongemma`](https://mvalentsev.github.io/awesome-free-ai-coding/models/diffusiongemma/), `llama-3.2-90b-vision`, `llama-3.2-11b-vision`, [`deepseek-v4.1-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4.1-flash/)
+[`glm-5.3-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/glm-5.3-flash/), [`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`laguna-xs-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-xs-2.1/), [`muse-glimmer-30b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/muse-glimmer-30b/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), [`gemma-4-31b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemma-4-31b/), [`gpt-oss-20b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gpt-oss-20b/), [`nemotron-3-nano-omni`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-omni/), [`diffusiongemma`](https://mvalentsev.github.io/awesome-free-ai-coding/models/diffusiongemma/), `llama-3.2-90b-vision`, `llama-3.2-11b-vision`, [`deepseek-v4.1-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4.1-flash/), [`nemotron-3.5-super-vl-120b-a12b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-super-vl-120b-a12b/), `step-5-preview-600b-a27b`
 
 ## Limits, in the vendor's words
 
@@ -39,7 +39,7 @@ What you send may be used to train or improve models. In the vendor's words: “
 
 - Base URL: `https://integrate.api.nvidia.com/v1`
 - Key: `NVIDIA_NIM_API_KEY` — get one at <https://build.nvidia.com>
-- Callable ids: `moonshotai/kimi-k3`, `z-ai/glm-5.3`, `z-ai/glm-5.3-flash`, `deepseek-ai/deepseek-v4.1-flash`, `nvidia/nemotron-3-ultra-550b-a55b`, `nvidia/nemotron-3-super-120b-a12b`, `poolside/laguna-xs-2.1`, `google/gemma-4-31b-it`, `meta/muse-glimmer-30b`, `nvidia/nemotron-3.5-lightning-30b-a3b`, `openai/gpt-oss-20b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`, `google/diffusiongemma-26b-a4b-it`, `meta/llama-3.2-90b-vision-instruct`, `meta/llama-3.2-11b-vision-instruct`
+- Callable ids: `z-ai/glm-5.3-flash`, `deepseek-ai/deepseek-v4.1-flash`, `nvidia/nemotron-3-ultra-550b-a55b`, `poolside/laguna-xs-2.1`, `google/gemma-4-31b-it`, `meta/muse-glimmer-30b`, `nvidia/nemotron-3.5-lightning-30b-a3b`, `openai/gpt-oss-20b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`, `google/diffusiongemma-26b-a4b-it`, `meta/llama-3.2-90b-vision-instruct`, `meta/llama-3.2-11b-vision-instruct`, `nvidia/nemotron-3.5-super-vl-120b-a12b`, `stepfun-ai/step-5-preview`, `minimaxai/minimax-m3.1-flash`, `nvidia/nemotron-3.5-bolt-e4b`, `mistralai/mistral-large-4-1t-a52b`
 - Note: Use available chat endpoints marked Free Endpoint. /v1/models also lists older IDs without a free mark, so catalog membership alone does not establish free access.
 
 Try it from your terminal with your key in `NVIDIA_NIM_API_KEY` — it goes from your machine to the vendor and nowhere else:
@@ -48,7 +48,7 @@ Try it from your terminal with your key in `NVIDIA_NIM_API_KEY` — it goes from
 curl -s https://integrate.api.nvidia.com/v1/chat/completions \
   -H "Authorization: Bearer $NVIDIA_NIM_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"moonshotai/kimi-k3","messages":[{"role":"user","content":"2+2? MAKE NO MISTAKES."}]}'
+  -d '{"model":"z-ai/glm-5.3-flash","messages":[{"role":"user","content":"2+2? MAKE NO MISTAKES."}]}'
 ```
 
 ## Evidence
@@ -59,11 +59,22 @@ curl -s https://integrate.api.nvidia.com/v1/chat/completions \
 - Source: <https://forums.developer.nvidia.com/t/request-for-nvidia-nim-api-rate-limit-increase-40-200-rpm/369798.json>
 - Source: <https://forums.developer.nvidia.com/t/account-access-verification-update/360900.json>
 - Source: <https://build.nvidia.com/api/runtime/config/otp-unsupported-countries.yaml>
+- Source: <https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b>
+- Source: <https://build.nvidia.com/minimaxai/minimax-m3.1-flash>
+- Source: <https://build.nvidia.com/nvidia/nemotron-3.5-bolt-e4b>
+- Source: <https://build.nvidia.com/z-ai/glm-5-3>
+- Source: <https://build.nvidia.com/mistralai/mistral-large-4-1t-a52b>
+- Source: <https://build.nvidia.com/mistralai/mistral-large-4-1t-a52b/modelcard>
 
 ## History
 
 Each line is a change to what this page publishes, dated the day it reached the list, in UTC.
 
+- `2026-10-29` — Free models changed: added nemotron-3.5-super-vl-120b-a12b, step-5-preview-600b-a27b
+- `2026-10-28` — Free models changed: dropped glm-5.3
+- `2026-10-20` — Free models changed: dropped nemotron-3-super
+- `2026-10-15` — Free models changed: added glm-5.3
+- `2026-10-15` — Free models changed: dropped glm-5.3, kimi-k3
 - `2026-10-02` — Free models changed: added deepseek-v4.1-flash
 - `2026-09-29` — Free models changed: added glm-5.3, glm-5.3-flash
 - `2026-09-28` — Free models changed: dropped mistral-nemotron
@@ -74,6 +85,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

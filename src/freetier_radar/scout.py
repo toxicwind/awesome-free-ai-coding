@@ -15,14 +15,15 @@ import httpx
 import yaml
 
 from .discovery import Evidence, fetch_page_texts, format_evidence, gather_evidence
-from .models import (SOURCE_RECHECK_DAYS, WATCH_RECHECK_DAYS, Entry, Source, Watched,
+from .models import (SOURCE_RECHECK_DAYS, WATCH_RECHECK_DAYS, ProbeType, Entry, Source, Watched,
                      domain_of, is_archived, is_blocked, is_covered, is_source_current,
                      is_watch_current, known_domains, load_blocklist, load_dismissed,
                      load_registry, load_sources, load_watchlist, save_registry, site_of,
                      probe_frequency, watch_match)
 from .prober import (UA, ProbeStatus, challenge_marker_hit, check_content, family_named,
-                     for_a_human, join_free_list_sync, probe_page_url_sync,
-                     unevidenced_families)
+                     for_a_human, join_free_list_sync, page_response_ok, probe_page_url_sync,
+                     unevidenced_families, model_table_findings)
+from .page_reader import recover_page_sync
 from .words import clip
 
 EDITABLE = {"offering", "limits", "card_required", "probe", "models"}
@@ -228,8 +229,9 @@ RETIREMENT_PROMPT = SYSTEM_RULES + """
 TASK: FIND-RETIREMENTS. Below are live entries and the current text of their
 official pages. Report an entry ONLY when its own page announces that the free
 offering is ending or has already ended, and gives a date. A price change, a
-paid plan, a deprecated model or a retired unrelated product is NOT a
-retirement. Copy the announcing sentence verbatim from the page text — an
+paid plan, a deprecated model, a regional restriction or a retired unrelated
+product is NOT a whole-offer retirement. Preserve geographic and plan scope.
+Copy the announcing sentence verbatim from the page text — an
 entry whose quote is not on the page is discarded.
 Output format:
 retire:
@@ -711,14 +713,18 @@ def format_watchlist(watchlist: list[Watched], today: date) -> str:
     )
 
 
-def probe_check_sync(entry: Entry, client: httpx.Client) -> str | None:
+def probe_check_sync(entry: Entry, client: httpx.Client,
+                     time_left: Callable[[], float] | None = None) -> str | None:
     """The run's probe, synchronous and single-shot, for vetting a proposal or a
     corrected row: None when the entry passes, else why it fails."""
     try:
         resp = client.get(probe_page_url_sync(client, entry.probe), follow_redirects=True)
+        if entry.probe.type is ProbeType.PAGE_KEYWORDS:
+            resp = recover_page_sync(client, resp,
+                time_left=time_left() if time_left is not None else None)
     except httpx.HTTPError as exc:
         return f"unreachable: {exc}"
-    if resp.status_code >= 400:
+    if not page_response_ok(resp):
         return f"HTTP {resp.status_code}"
     if entry.probe.free_list is not None:
         resp, failure = join_free_list_sync(client, entry, resp)
@@ -729,8 +735,21 @@ def probe_check_sync(entry: Entry, client: httpx.Client) -> str | None:
         # The run only flags a live row for this (see `unevidenced_families`); a
         # proposal or a correction has nothing live to protect and is refused.
         unevidenced = unevidenced_families(resp, entry)
-        return ("listed families the page does not name: " + ", ".join(unevidenced)
-                if unevidenced else None)
+        notes = (["listed families the page does not name: " + ", ".join(unevidenced)]
+                 if unevidenced else [])
+        notes.extend(model_table_findings(resp, entry, date.today()))
+        if entry.probe.model_exclusions:
+            from .quotes import model_exclusion_changes
+            bodies = {}
+            for source in dict.fromkeys(e.source for e in entry.probe.model_exclusions):
+                try:
+                    source_response = resp if source == entry.probe.endpoint else client.get(source, follow_redirects=True)
+                except httpx.HTTPError:
+                    continue
+                if page_response_ok(source_response):
+                    bodies[source] = source_response.text
+            notes.extend(model_exclusion_changes(entry, bodies))
+        return " | ".join(notes) or None
     # Name a bot wall in the rejection: "missing keywords" reads as a bad
     # proposal, while "bot challenge" tells the reviewer the endpoint walls off
     # everything that is not a browser.
@@ -956,11 +975,14 @@ def named_by_row(client: httpx.Client, time_left: Callable[[], float] | None = N
                 return None
             try:
                 resp = client.get(probe_page_url_sync(client, entry.probe), follow_redirects=True)
+                if entry.probe.type is ProbeType.PAGE_KEYWORDS:
+                    resp = recover_page_sync(client, resp,
+                        time_left=time_left() if time_left is not None else None)
             except httpx.HTTPError:
                 resp = None
-            if resp is not None and resp.status_code < 400 and entry.probe.free_list is not None:
+            if resp is not None and page_response_ok(resp) and entry.probe.free_list is not None:
                 resp, _ = join_free_list_sync(client, entry, resp)
-            responses[entry.id] = resp if resp is not None and resp.status_code < 400 else None
+            responses[entry.id] = resp if resp is not None and page_response_ok(resp) else None
         resp = responses[entry.id]
         return None if resp is None else family_named(resp, entry, family)
 
@@ -988,12 +1010,13 @@ def _retirement_excerpt(text: str) -> str:
 
 
 def apply_retirements(entries: list[Entry], retire: list[dict],
-                      pages: dict[str, str]) -> list[str]:
+                      pages: dict[str, str], rejected: list[str] | None = None) -> list[str]:
     """Set retired_on from a vendor's own shutdown announcement.
 
     The quote has to appear verbatim in the page text we fetched — a retirement
     date is the one field that archives a live entry outright, so a paraphrased
-    or invented announcement must not be able to set it."""
+    or invented announcement must not be able to set it. An announcement dated
+    before a successful verification is contradictory evidence for human review."""
     applied = []
     by_id = {e.id: e for e in entries}
     for r in retire:
@@ -1008,6 +1031,11 @@ def apply_retirements(entries: list[Entry], retire: list[dict],
         try:
             when = date.fromisoformat(str(r.get("retired_on", "")))
         except ValueError:
+            continue
+        if when < entry.last_verified:
+            if rejected is not None:
+                rejected.append(f"{entry.id}: retirement on {when} contradicts successful "
+                                f"verification on {entry.last_verified} — review the offer's scope")
             continue
         entry.retired_on = when
         applied.append(f"{entry.id} ({when.isoformat()})")
@@ -1129,7 +1157,8 @@ def run_scout(llm, entries: list[Entry], failures: list[dict],
             # An optional sweep must never sink the run that finds new entries.
             try:
                 data = _ask(llm, RETIREMENT_PROMPT.format(context=context))
-                result["retired"] = apply_retirements(entries, data.get("retire") or [], pages)
+                result["retired"] = apply_retirements(
+                    entries, data.get("retire") or [], pages, result["rejected"])
             except RuntimeError as exc:
                 lost_to_backends("retirement sweep", exc)
 
@@ -1219,6 +1248,8 @@ def main() -> None:
           f"providers: {evidence.describe_providers() or 'none'}")
     for warning in evidence.feed_warnings:
         print(f"feed warning: {warning}")
+    for warning in evidence.page_warnings:
+        print(f"page warning: {warning}")
 
     try:
         with httpx.Client(timeout=httpx.Timeout(20.0, connect=10.0),
@@ -1228,10 +1259,12 @@ def main() -> None:
             # entry, each at its own 30s read timeout, inside a phase that checks
             # the budget once, before any of them.
             result = run_scout(llm, entries, failures,
-                               partial(fetch_page_texts, time_left=deadline.remaining),
+                               partial(fetch_page_texts, time_left=deadline.remaining,
+                                       on_unread=lambda warning: print(f"page warning: {warning}",
+                                                                       flush=True)),
                                date.today(),
                                evidence=evidence,
-                               verifier=lambda e: probe_check_sync(e, probe_client),
+                               verifier=lambda e: probe_check_sync(e, probe_client, deadline.remaining),
                                blocklist=blocklist,
                                dismissed=dismissed,
                                watchlist=watchlist,

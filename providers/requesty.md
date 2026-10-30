@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Requesty free tier: limits, free models, verified 2026-10-08'
-description: 'OpenAI-compatible router with free models beside a metered catalog, routing, caching and fallbacks. Free models: nemotron-3-ultra, nemotron-3-super, gemma-4-31b, ling-3.0-tiny, muse-glimmer-30b, nemotron-3.5-lightning, leanstral-1.5, nemotron-3-nano-30b and 1 more. No credit card for the Free…'
+title: 'Requesty free tier: limits, free models, verified 2026-10-26'
+description: 'OpenAI-compatible router with free models beside a metered catalog, routing, caching and fallbacks. Free models: nemotron-3-ultra, nemotron-3-super, gemma-4-31b, ling-3.0-tiny, muse-glimmer-30b, nemotron-3.5-lightning, leanstral-1.5, nemotron-3-nano-30b and 2 more. No credit card for the Free…'
 permalink: /providers/requesty/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: Requesty
 ---
 
@@ -11,7 +11,7 @@ crumb: Requesty
 
 # Requesty free tier
 
-🧭 Aggregators (one key, many providers) · no card · **live** — last verified by a probe on 2026-10-08 · [requesty.ai](https://www.requesty.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🧭 Aggregators (one key, many providers) · no card · **live** — last verified by a probe on 2026-10-26 · [requesty.ai](https://www.requesty.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -19,7 +19,7 @@ OpenAI-compatible router with free models beside a metered catalog, routing, cac
 
 ## Free models
 
-[`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`nemotron-3-super`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-super/), [`gemma-4-31b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemma-4-31b/), [`ling-3.0-tiny`](https://mvalentsev.github.io/awesome-free-ai-coding/models/ling-3.0-tiny/), [`muse-glimmer-30b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/muse-glimmer-30b/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), `leanstral-1.5`, [`nemotron-3-nano-30b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-30b/), [`nemotron-3-nano-omni`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-omni/)
+[`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`nemotron-3-super`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-super/), [`gemma-4-31b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemma-4-31b/), [`ling-3.0-tiny`](https://mvalentsev.github.io/awesome-free-ai-coding/models/ling-3.0-tiny/), [`muse-glimmer-30b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/muse-glimmer-30b/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), `leanstral-1.5`, [`nemotron-3-nano-30b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-30b/), [`nemotron-3-nano-omni`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-omni/), [`ling-3.1-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/ling-3.1-flash/)
 
 ## Limits, in the vendor's words
 
@@ -64,6 +64,7 @@ curl -s https://router.requesty.ai/v1/chat/completions \
 
 Each line is a change to what this page publishes, dated the day it reached the list, in UTC.
 
+- `2026-10-19` — Free models changed: added ling-3.1-flash
 - `2026-09-27` — Free models changed: dropped laguna-m.1, laguna-xs.2
 - `2026-09-25` — Free models changed: added gemma-4-31b; dropped gemma-4
 - `2026-09-24` — Free models changed: added laguna-m.1, laguna-xs.2, leanstral-1.5, nemotron-3-nano-30b, nemotron-3-nano-omni
@@ -72,6 +73,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

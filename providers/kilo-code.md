@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Kilo Code free tier: limits, free models, verified 2026-10-08'
-description: 'Open-source VS Code / JetBrains / CLI agent whose $0 plan routes "Auto Free" to the models the Kilo Gateway marks free; the same gateway serves them to any OpenAI client without a key, with BYOK and local models alongside. Free models: nemotron-3-ultra, nemotron-3-super, north-mini-code…'
+title: 'Kilo Code free tier: limits, free models, verified 2026-10-26'
+description: 'Open-source coding agent with an Auto Free mode and a keyless OpenAI-compatible gateway, alongside BYOK and local models. Free models: nemotron-3-ultra, north-mini-code, laguna-s-2.1, laguna-xs-2.1, nemotron-3.5-lightning, dots-3-note, nemotron-3-nano-omni, nemotron-3.5-super-vl-120b-a12b. The…'
 permalink: /providers/kilo-code/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: Kilo Code
 ---
 
@@ -11,25 +11,25 @@ crumb: Kilo Code
 
 # Kilo Code free tier
 
-🤖 Coding agents & CLIs · no card · not offered in Iran, Syria, Cuba and 1 more place · **live** — last verified by a probe on 2026-10-08 · [kilo.ai](https://kilo.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🤖 Coding agents & CLIs · no card · not offered in Iran, Syria, Cuba and 1 more place · **live** — last verified by a probe on 2026-10-26 · [kilo.ai](https://kilo.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-Open-source VS Code / JetBrains / CLI agent whose $0 plan routes "Auto Free" to the models the Kilo Gateway marks free; the same gateway serves them to any OpenAI client without a key, with BYOK and local models alongside
+Open-source coding agent with an Auto Free mode and a keyless OpenAI-compatible gateway, alongside BYOK and local models
 
 ## Free models
 
-[`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`nemotron-3-super`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-super/), [`north-mini-code`](https://mvalentsev.github.io/awesome-free-ai-coding/models/north-mini-code/), [`step-3.7-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/step-3.7-flash/), [`laguna-s-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-s-2.1/), [`laguna-xs-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-xs-2.1/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), [`inkling-small`](https://mvalentsev.github.io/awesome-free-ai-coding/models/inkling-small/), [`dots-3-note`](https://mvalentsev.github.io/awesome-free-ai-coding/models/dots-3-note/), [`ling-3.0-flash-sante`](https://mvalentsev.github.io/awesome-free-ai-coding/models/ling-3.0-flash-sante/), [`nemotron-3-nano-omni`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-omni/)
+[`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`north-mini-code`](https://mvalentsev.github.io/awesome-free-ai-coding/models/north-mini-code/), [`laguna-s-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-s-2.1/), [`laguna-xs-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-xs-2.1/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), [`dots-3-note`](https://mvalentsev.github.io/awesome-free-ai-coding/models/dots-3-note/), [`nemotron-3-nano-omni`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-nano-omni/), [`nemotron-3.5-super-vl-120b-a12b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-super-vl-120b-a12b/)
 
 ## Limits, in the vendor's words
 
 200 requests/hour per IP
 
-$0 a month; no account for the free lane.  The lane is whatever the gateway marks isFree and the free-model lineup rotates. It costs something other than money: every free id carries mayTrainOnYourPrompts, which almost no metered id does. Auto Free routes over the free models the catalog's autoRouting list names. Everything else runs on pay-as-you-go credits or a Kilo Pass subscription. Read 2026-09-21
+The free-model lineup rotates. Auto Free routes over the free models in the catalog's autoRouting list. Other models use pay-as-you-go credits or a Kilo Pass subscription.
 
 ## Where it is offered
 
-Not offered in Iran, Syria, Cuba and North Korea ([source](https://kilo.ai/terms), read 2026-09-26). That leaves out under 0.1% of the developers GitHub counts, beyond the countries under comprehensive US embargo ([Innovation Graph](https://innovationgraph.github.com/), 2026 Q1). In the vendor's words: “including Cuba, Iran, North Korea, Syria, or the Crimea, so-called Donetsk People’s Republic, or so-called Luhansk People’s Republic regions of Ukraine”.
+Not offered in Iran, Syria, Cuba and North Korea ([source](https://kilo.ai/terms), read 2026-10-26). That leaves out under 0.1% of the developers GitHub counts, beyond the countries under comprehensive US embargo ([Innovation Graph](https://innovationgraph.github.com/), 2026 Q1). In the vendor's words: “including Cuba, Iran, North Korea, Syria, or the Crimea, so-called Donetsk People’s Republic, or so-called Luhansk People’s Republic regions of Ukraine”.
 
 ## What happens to what you send
 
@@ -40,8 +40,8 @@ What you send may be used to train or improve models. In the vendor's words: “
 - Base URL: `https://api.kilo.ai/api/gateway`
 - Key: none — the lane is anonymous
 - Codex CLI: [`configs/codex/kilo-code.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/kilo-code.config.toml) — copy it to `~/.codex/`, then `codex -p kilo-code`
-- Callable ids: `openrouter/free`, `kilo-auto/free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3-super-120b-a12b:free`, `nvidia/nemotron-3.5-lightning:free`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, `cohere/north-mini-code:free`, `stepfun/step-3.7-flash:free`, `poolside/laguna-s-2.1:free`, `poolside/laguna-xs-2.1:free`, `liquid/lfm-2.5-2.6b:free`, `inclusionai/ling-3.0-flash-sante:free`, `dots-studio/dots-3-note-preview:free`, `thinkingmachines/inkling-small:free`
-- Note: Free IDs need no key; metered IDs require sign-in. Free catalog entries allow training on prompts. kilo-auto/free and openrouter/free choose a free model automatically. LiquidAI advises against agentic coding with lfm-2.5-2.6b.
+- Callable ids: `openrouter/free`, `kilo-auto/free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3.5-lightning:free`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, `cohere/north-mini-code:free`, `poolside/laguna-s-2.1:free`, `poolside/laguna-xs-2.1:free`, `liquid/lfm-2.5-2.6b:free`, `dots-studio/dots-3-note-preview:free`, `stealth/glyph-cluster`, `nvidia/nemotron-3.5-super-vl:free`, `xingchen-agi/xing4.0-29b-a4b:free`, `recursive/flint-v1.0:free`, `reflection/beam-free`
+- Note: Use free IDs without a key; metered IDs require sign-in. kilo-auto/free and openrouter/free choose a free model automatically. LiquidAI advises against agentic coding with lfm-2.5-2.6b.
 
 Try it from your terminal — the lane takes no key:
 
@@ -53,7 +53,7 @@ curl -s https://api.kilo.ai/api/gateway/chat/completions \
 
 ## Evidence
 
-- Probe: the models catalog at <https://api.kilo.ai/api/gateway/models>, free rows carrying `:free`, each listed family checked for a zero price
+- Probe: the models catalog at <https://api.kilo.ai/api/gateway/models>, each listed family checked for a zero price
 - Source: <https://kilo.ai/pricing>
 - Source: <https://api.kilo.ai/api/gateway/models>
 - Source: <https://kilo.ai/docs/gateway/authentication>
@@ -63,6 +63,10 @@ curl -s https://api.kilo.ai/api/gateway/chat/completions \
 
 Each line is a change to what this page publishes, dated the day it reached the list, in UTC.
 
+- `2026-10-29` — Free models changed: added nemotron-3.5-super-vl-120b-a12b
+- `2026-10-27` — Free models changed: dropped nemotron-3-super
+- `2026-10-22` — Free models changed: dropped inkling-small
+- `2026-10-12` — Free models changed: dropped ling-3.0-flash-sante, step-3.7-flash
 - `2026-10-05` — Free models changed: dropped qwen3.8-27b
 - `2026-10-02` — Free models changed: added qwen3.8-27b
 - `2026-09-29` — Free models changed: dropped ling-3.0-flash-fin
@@ -77,6 +81,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

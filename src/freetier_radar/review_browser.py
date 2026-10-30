@@ -1,9 +1,12 @@
 """One parameterized browser suite; its result is bound to a commit and coverage plan."""
 import json
+import html as html_text
+import re
 from pathlib import Path
 
 from jinja2 import Environment
 
+from . import git
 from .indexnow import index_at
 from .render import PAGES_URL, REPO_URL
 from .review import Bundle, blob, scoped
@@ -27,19 +30,39 @@ def browser_plan(bundle: Bundle) -> dict:
     links = [[e['id'], m['family']] for e in rows for m in e.get('models', [])
              if m['family'] not in old.get(e['id'], set())]
     widths, schemes = [1440, 375, 320], ['light', 'dark']
+    html = git.show(bundle.repo, scope['sha'], 'index.html') or ''
+    config_block = re.search(r'<script type="application/json" id="client-configs">(.*?)</script>', html, re.S)
+    clients = list(json.loads(config_block.group(1))) if config_block else []
+    words = {word for key in ('sections', 'filters')
+             for item in index.get('search_config', {}).get(key, []) for word in item.get('words', [])}
+    named = sorted((e for e in index['entries'] if not e.get('archived') and not e.get('duplicate_of')
+                    and e.get('page') and re.fullmatch(r'[A-Za-z][A-Za-z0-9]+', e.get('name', ''))
+                    and e['name'].lower() not in words
+                    and e['name'].lower() not in current), key=lambda e: (len(e['name']), e['name']))[:2]
+    readme = git.show(bundle.repo, scope['sha'], 'README.md') or ''
+    readme_model_list = 'Where each one is free' in readme
+    readme_images = [html_text.unescape(alt) for alt in re.findall(
+        r'<picture>.*?<img\s[^>]*alt="([^"]+)"', readme, re.S)]
     cases = []
     for width in widths:
         for scheme in schemes:
             prefix = f'{width}/{scheme}/'
             cases += [prefix + kind + '/' + m['family'] for kind in ('search', 'browse', 'model') for m in models]
             cases += [prefix + 'provider/' + e['id'] for e in rows]
+            cases += [prefix + 'config/' + client for client in clients]
+            if len(named) == 2:
+                cases.append(prefix + 'search-flow')
             if width != 320:
                 cases.append(prefix + 'readme')
+                cases += [prefix + 'readme-image/' + str(i) for i in range(len(readme_images))]
     return {'sha': scope['sha'], 'site': PAGES_URL + '/', 'repository': REPO_URL,
             'chart_date': json.loads(blob(bundle.repo, scope['sha'], 'src/freetier_radar/intelligence-index.json'))['read_on']
                           if 'src/freetier_radar/intelligence-index.json' in scope['paths'] else None,
             'models': models, 'rows': rows, 'folded_targets': folded_targets,
             'links': links, 'widths': widths, 'schemes': schemes, 'cases': cases,
+            'clients': clients,
+            'readme_model_list': readme_model_list, 'readme_images': readme_images,
+            'search_rows': [{'name': e['name'], 'page': e['page']} for e in named],
             'output': str(bundle.out / 'browser-execution.json')}
 
 
@@ -51,7 +74,8 @@ def browser_script(bundle: Bundle, *, cases: list[str] | None = None) -> str:
             raise ValueError('selected browser cases must be a unique subset of the full plan')
         plan = {**plan, 'selected_cases': cases}
     template = Path(__file__).resolve().parents[2] / 'templates/review-browser.js.j2'
-    return Environment(autoescape=False).from_string(template.read_text()).render(plan=json.dumps(plan))
+    return Environment(autoescape=False).from_string(template.read_text()).render(
+        plan=json.dumps(plan), readme_model_list=plan['readme_model_list'])
 
 
 def accept_browser(bundle: Bundle, result: dict, plan: dict) -> dict:

@@ -88,18 +88,36 @@ def test_a_provider_page_description_names_the_free_models_from_the_column():
 
 def test_a_provider_page_says_why_its_row_names_no_model():
     """Why a row's Models column is empty depends on its free part — a sum to
-    spend, models the vendor does not name, a page that names none — and the
-    page gives the reason that fits, not one sentence for all three."""
+    spend, models the vendor does not name, or an unlisted family — and the
+    page preserves that scope without inferring vendor availability."""
     from freetier_radar.render import build_provider_page
 
     credit = build_provider_page(make(id="credit", free_part="sum"), [], TODAY)
-    assert "No model is free by itself here" in credit
+    assert "budget for model usage across the catalog" in credit
     assert "names no free model" not in credit
     auto = build_provider_page(make(id="auto", free_part="unnamed"), [], TODAY)
-    assert "The vendor does not say which models" in auto
+    assert "The vendor does not identify which models" in auto
     assert "names no free model" not in auto
     page = build_provider_page(make(id="page", free_part="models"), [], TODAY)
-    assert "The page this row is verified against names no free model" in page
+    assert "No free model family is currently listed" in page
+
+    for rendered in (credit, auto, page):
+        section = rendered.split("## Free models\n", 1)[1].split("\n## ", 1)[0]
+        assert "column" not in section
+
+
+def test_a_page_verified_callable_offer_does_not_infer_that_the_vendor_names_no_model():
+    from freetier_radar.render import build_provider_page
+
+    entry = make(free_part="models", api={
+        "base_url": "https://x.ai/v1", "key_url": "https://x.ai/keys",
+        "auth": "api-key", "openai_compatible": True, "model_ids": ["x-mini-2"],
+    })
+    page = build_provider_page(entry, [], TODAY)
+    free_models = page.split("## Free models\n", 1)[1].split("\n## ", 1)[0]
+    assert "names no free model" not in free_models
+    assert "No free model family is currently listed" in free_models
+    assert "`x-mini-2`" in page.split("## Connect\n", 1)[1]
 
 
 def test_a_provider_page_says_the_families_are_checked_not_that_one_fails_the_row():
@@ -243,7 +261,7 @@ def test_the_readme_keeps_the_plug_it_in_heading_and_sends_the_reader_to_configs
     save_registry(reg, [api_entry(id="groq-free", name="Groq")])
     text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=TODAY)
     plug = text.split("## 🔧 Plug it into your agent")[1].split("## 📡 How this list stays fresh")[0]
-    assert "[`configs/README.md`](configs/README.md)" in plug
+    assert "[Connection table](configs/README.md)" in plug
     assert "| Provider | Base URL |" not in plug and "https://api.x.ai/v1" not in plug
     assert "[`llms.txt`](llms.txt)" in plug and "[`index.json`](index.json)" in plug
     assert f"{PAGES_URL}/#connections" in plug
@@ -507,6 +525,17 @@ def test_catalog_limits_reach_named_and_pooled_clients():
     deployments = build_litellm_config([row], TODAY)["model_list"]
     assert {d["model_name"] for d in deployments} == {f"{row.id}/qwen3-coder:free", "free/strong"}
     assert all(d["litellm_params"]["max_tokens"] == 16384 for d in deployments)
+
+
+def test_opencode_request_budget_does_not_invent_catalog_limits():
+    row = api_entry(probe={"type": "api-models", "endpoint": "https://api.x.ai/v1/models"},
+                    api={"base_url": "https://api.x.ai/v1",
+                         "model_ids": ["alpha", "beta"],
+                         "opencode_output_tokens": {"alpha": 8000}})
+    models = build_opencode_config([row], TODAY)["provider"][row.id]["models"]
+    assert models["alpha"]["options"] == {"max_completion_tokens": 8000, "max_tokens": 8000}
+    assert "limit" not in models["alpha"]
+    assert "options" not in models["beta"]
 
 
 def test_litellm_config_names_every_free_model_of_every_connectable_entry():
@@ -852,7 +881,7 @@ def test_the_quickstart_curl_sends_the_session_header_its_lane_asks_for(tmp_path
         "base_url": "https://zen.example/v1", "auth": "none", "model_ids": ["free-a"],
         "session_header": "x-zen-session"})])
     text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=TODAY)
-    quickstart = text.split("No account at all?")[1].split("## 📋 The list")[0]
+    quickstart = text.split("**Try without an account:**")[1].split("## 📋 The list")[0]
     assert '  -H "x-zen-session: quickstart-$RANDOM$RANDOM" \\\n' in quickstart
     assert "curl -s https://zen.example/v1/chat/completions \\\n" in quickstart
     assert render_readme(reg, Path("templates"), tmp_path / "README2.md", today=TODAY) == text
@@ -869,10 +898,10 @@ def test_quickstart_note_reaches_the_page(tmp_path: Path):
                                   "model_ids": ["gpt-oss-120b"],
                                   "note": "2 requests per minute, per IP and per model"})])
     text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=TODAY)
-    quickstart = text.split("No account at all?")[1].split("## 📋 The list")[0]
+    quickstart = text.split("**Try without an account:**")[1].split("## 📋 The list")[0]
     assert "2 requests per minute, per IP and per model" in quickstart
     # and it is framed as the demo it is, never as the way to work
-    assert "not a setup to write code on" in quickstart
+    assert "rate-limited connectivity check" in quickstart
 
 
 def test_starters_answer_what_to_code_with_before_the_reference_table(tmp_path: Path):
@@ -1383,7 +1412,7 @@ def test_the_start_blocks_are_lists_like_the_rows(tmp_path: Path):
     text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=TODAY)
     start = text.split("## 🚀 Start here")[1].split("## 📋 The list")[0]
     assert "\n- **[Ag](https://x.ai)** — `m-1`\u00a0· `m-2`\n" in start
-    assert "\n- **An API key that gets the most done for free** — [Api](https://x.ai)\n" in start
+    assert "\n- **Free API access** — [Api](https://x.ai)\n" in start
     assert "| Agent |" not in start and "| I want… |" not in start
 
 
@@ -1851,7 +1880,7 @@ def test_a_notice_on_the_quickstart_lane_is_a_warning_right_under_the_curl(tmp_p
     reg = tmp_path / "registry.yaml"
     save_registry(reg, [_noticed()])
     text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=TODAY)
-    quickstart = text.split("No account at all?")[1].split("## 📋 The list")[0]
+    quickstart = text.split("**Try without an account:**")[1].split("## 📋 The list")[0]
     after_curl = quickstart.split("```bash\n")[1].split("```\n", 1)[1]
     assert after_curl.startswith(
         "> [!WARNING]\n"
@@ -2172,7 +2201,32 @@ def test_without_a_measurement_the_strong_models_stay_a_list(tmp_path: Path):
     strong = text.split("**Strong models, free.**")[1].split("**Or pick by what you need:**")[0]
     assert "strong-light.svg" not in strong and "<details>" not in strong
     assert "- [`glm-5.3`]" in strong
-    assert not (tmp_path / "assets" / "readme" / "strong-light.svg").exists()
+    chart = (tmp_path / "assets" / "readme" / "strong-light.svg").read_text()
+    assert "no current qualifying scores" in chart and 'class="bar ' not in chart
+
+
+@pytest.mark.parametrize("keep_tiers", [False, True])
+def test_render_replaces_old_chart_scores_when_none_can_be_drawn(tmp_path, monkeypatch, keep_tiers):
+    from freetier_radar.models import save_registry
+    from freetier_radar.render import check_rendered, render_repository
+    import freetier_radar.render as renderer
+    reg = tmp_path / "registry.yaml"
+    rows = _strong_rows()
+    save_registry(reg, rows)
+    render_readme(reg, Path("templates"), tmp_path / "README.md", today=TODAY, scores=SCORES)
+    if not keep_tiers:
+        for row in rows:
+            for model in row.models:
+                model.tier = None
+        save_registry(reg, rows)
+    monkeypatch.setattr(renderer, "load_scores", lambda: {**SCORES, "families": {}})
+    render_repository(reg, Path("templates"), tmp_path, today=TODAY)
+    assert check_rendered(reg, Path("templates"), tmp_path, today=TODAY) == []
+    for variant in ("light", "dark", "narrow"):
+        svg = (tmp_path / "assets/readme" / f"strong-{variant}.svg").read_text()
+        assert "glm-5.3" not in svg and "kimi-k3" not in svg
+        assert "<title" in svg and 'role="img"' in svg
+    assert "strong-light.svg" not in (tmp_path / "README.md").read_text()
 
 
 def test_a_picture_is_described_once_for_the_readme_and_for_itself(tmp_path: Path):

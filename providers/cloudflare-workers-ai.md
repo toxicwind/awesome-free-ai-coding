@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Cloudflare Workers AI free tier: limits, free models, verified 2026-10-08'
-description: '10k neurons/day free. Past the free allowance "further operations will fail with an error". Some models require a paid billing method even if neurons remain: Kimi K2.6, Kimi K2.7 Code, GLM 5.2, GLM 5.3, GLM 5.3 Flash, DeepSeek V4 Flash 0731 and DeepSeek V4 Pro 0813. The free text-generation rate…'
+title: 'Cloudflare Workers AI free tier: limits, free models, verified 2026-10-26'
+description: Serverless model inference on Cloudflare, with an OpenAI-compatible API and a daily free allowance. Past the free allowance "further operations will fail with an error". Some models require a paid billing method through the Workers Paid plan or prepaid AI Gateway credits even if neurons remain…
 permalink: /providers/cloudflare-workers-ai/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-28
 crumb: Cloudflare Workers AI
 ---
 
@@ -11,15 +11,15 @@ crumb: Cloudflare Workers AI
 
 # Cloudflare Workers AI free tier
 
-🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-08 · [cloudflare.com](https://www.cloudflare.com/products/workers-ai/) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-26 · [cloudflare.com](https://www.cloudflare.com/products/workers-ai/) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-10k neurons/day free
+Serverless model inference on Cloudflare, with an OpenAI-compatible API and a daily free allowance
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
@@ -27,7 +27,7 @@ No model is free by itself here: the free part is an amount the account spends a
 
 Free text generation: 300 requests/minute per account
 
-Past the free allowance "further operations will fail with an error". Some models require a paid billing method even if neurons remain: Kimi K2.6, Kimi K2.7 Code, GLM 5.2, GLM 5.3, GLM 5.3 Flash, DeepSeek V4 Flash 0731 and DeepSeek V4 Pro 0813. The free text-generation rate does not apply to models requiring the Workers Paid plan.
+Past the free allowance "further operations will fail with an error". Some models require a paid billing method through the Workers Paid plan or prepaid AI Gateway credits even if neurons remain; the pricing page identifies them. The free text-generation rate does not apply to models requiring paid access.
 
 ## Where it is offered
 
@@ -35,7 +35,7 @@ The vendor names no country it keeps the offer from ([source](https://www.cloudf
 
 ## What happens to what you send
 
-What you send is not used to train models. In the vendor's words: “Cloudflare does not use your Customer Content to (1) train any AI models made available on Workers AI or (2) improve any Cloudflare or third-party services” ([source](https://developers.cloudflare.com/workers-ai/platform/data-usage/)).
+What you send is not used to train models. In the vendor's words: “Cloudflare does not use Customer Content processed by Workers AI to train AI models.” ([source](https://developers.cloudflare.com/workers-ai/platform/data-usage/)).
 
 ## Connect
 
@@ -68,6 +68,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

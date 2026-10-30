@@ -3,7 +3,7 @@ layout: default
 title: 'Infomaniak AI Services free tier (archived): what it offered, and why it left the list'
 description: Swiss estate-cloud API over open-weight models with a one-month trial wallet of one million credits, one credit per LLM token. "One million free credits allow you to test the service without commitment for one month" and "The API is billed on a credit basis. Each request consumes one credit or…
 permalink: /providers/infomaniak-ai/
-last_modified_at: 2026-09-16
+last_modified_at: 2026-09-30
 crumb: Infomaniak AI Services
 ---
 
@@ -40,6 +40,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08. No probe reads this row any more — it left the list for good unless a reviewer brings it back; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29. No probe reads this row any more — it left the list for good unless a reviewer brings it back; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

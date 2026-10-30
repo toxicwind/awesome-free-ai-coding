@@ -1,31 +1,31 @@
 ---
 layout: default
-title: 'Cursor (Hobby) free tier: limits, free models, verified 2026-10-08'
-description: 'Permanent free Hobby plan of the Cursor AI IDE — limited Agent requests, Cursor''s own model and Tab completions, no credit card. Free models: composer. No credit card is required. Hobby includes limited Agent, Chat and Tab usage with Auto and access to Composer; neither a numerical allowance nor a…'
+title: 'Cursor (Free) free tier: limits, free models, verified 2026-10-26'
+description: Free coding plan of the Cursor AI IDE, with limited Agent and Chat usage. Free includes limited Agent, Chat and Tab usage with Cursor's first-party models; numerical allowances are unpublished and third-party models are not included. The pricing FAQ describes weekly refreshes across tiers, while…
 permalink: /providers/cursor-hobby/
-last_modified_at: 2026-10-08
-crumb: Cursor (Hobby)
+last_modified_at: 2026-10-27
+crumb: Cursor (Free)
 ---
 
 {% raw %}
 
-# Cursor (Hobby) free tier
+# Cursor (Free) free tier
 
-🎁 Trials (no card when possible) · no card · **live** — last verified by a probe on 2026-10-08 · [cursor.com](https://cursor.com/) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🤖 Coding agents & CLIs · no card · **live** — last verified by a probe on 2026-10-26 · [cursor.com](https://cursor.com/) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-Permanent free Hobby plan of the Cursor AI IDE — limited Agent requests, Cursor's own model and Tab completions, no credit card
+Free coding plan of the Cursor AI IDE, with limited Agent and Chat usage
 
 ## Free models
 
-`composer`
+No free model family is listed yet; new offers must clear the two-week bar before entering this section.
 
 ## Limits, in the vendor's words
 
-Agent usage: Monthly usage allowance: amount not published per account
+Agent usage: Usage allowance: amount not published (period not published) per account
 
-No credit card is required. Hobby includes limited Agent, Chat and Tab usage with Auto and access to Composer; neither a numerical allowance nor a separate Tab cap is published. Usage resets with the monthly billing cycle and does not roll over. The cap leads to a notification and an offer to upgrade or use on-demand billing. Cursor Router is not offered on individual plans.
+Free includes limited Agent, Chat and Tab usage with Cursor's first-party models; numerical allowances are unpublished and third-party models are not included. The pricing FAQ describes weekly refreshes across tiers, while detailed docs explicitly assign weekly pools to paid X subscriptions and monthly pools to legacy Cursor plans. Those descriptions do not establish a consistent Free reset; check your account.
 
 ## Where it is offered
 
@@ -38,24 +38,27 @@ What you send may be used to train or improve models unless you turn that off. I
 ## Connect
 
 - No API endpoint to paste: this row is a tool you install or sign in to.
+- In Cursor (Free)'s own model list: `grok-4.7`, `grok-4.6`, `grok-4.5`, `composer-2.5`
 
 ## Evidence
 
-- Probe: the page at <https://cursor.com/pricing>, anchored on `"name":"hobby","price":"0"`, `limited agent requests`
+- Probe: the page at <https://cursor.com/help/models-and-usage/available-models>, anchored on `Free and Plus include only Cursor's first-party models`
 - Source: <https://cursor.com/pricing>
 - Source: <https://cursor.com/help/models-and-usage/usage-limits>
 - Source: <https://cursor.com/help/account-and-billing/pricing>
 - Source: <https://cursor.com/docs/account/pricing>
+- Source: <https://cursor.com/help/models-and-usage/available-models>
 
 ## History
 
 Each line is a change to what this page publishes, dated the day it reached the list, in UTC.
 
+- `2026-10-13` — Free models changed: dropped composer
 - `2026-09-25` — Free models changed: added composer
 - `2026-07-19` — Added: Permanent free Hobby plan of the Cursor AI IDE with limited Agent requests and Tab completions, no credit card
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

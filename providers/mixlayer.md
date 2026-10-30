@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Mixlayer free tier: limits, free models, verified 2026-10-08'
+title: 'Mixlayer free tier: limits, free models, verified 2026-10-26'
 description: 'Serverless open models priced per token, one of them at $0 and callable without prepaid credit. Free models: qwen3.5-4b. Free models do not need prepaid credit; paid models return 402 when the balance is empty. The zero-priced Qwen route is separate from metered models. Rate limits are set per…'
 permalink: /providers/mixlayer/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: Mixlayer
 ---
 
@@ -11,7 +11,7 @@ crumb: Mixlayer
 
 # Mixlayer free tier
 
-🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-08 · [mixlayer.com](https://www.mixlayer.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-26 · [mixlayer.com](https://www.mixlayer.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -41,7 +41,6 @@ What you send is not used to train models. In the vendor's words: “By default,
 - Key: `MIXLAYER_API_KEY` — get one at <https://console.mixlayer.com/app/api-keys>
 - Codex CLI: [`configs/codex/mixlayer.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/mixlayer.config.toml) — copy it to `~/.codex/`, then `codex -p mixlayer`; set up on the lane by the vendor's own page, <https://docs.mixlayer.com/codex-cli>: "A separate profile keeps Mixlayer isolated from your default Codex configuration"
 - Callable ids: `qwen/qwen3.5-4b-free`
-- Note: the id is the pricing page's and the docs' own example; /v1/models answers 401 without a key, so it is not read off a catalog
 
 Try it from your terminal with your key in `MIXLAYER_API_KEY` — it goes from your machine to the vendor and nowhere else:
 
@@ -67,6 +66,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

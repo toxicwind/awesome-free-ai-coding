@@ -17,14 +17,17 @@ import asyncio
 import html
 import re
 import sys
+from html.parser import HTMLParser
+from urllib.parse import urljoin
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 import httpx
 
-from .models import Entry, is_archived, load_registry
-from .prober import CONCURRENCY, TAG, UA, _plain_spaces, _rendered, probe_page_url
+from .page_reader import page_evidence, recover_page
+from .models import ProbeType, Entry, is_archived, load_registry
+from .prober import CONCURRENCY, TAG, UA, _plain_spaces, _rendered, page_response_ok, probe_page_url
 
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 MIN_WORDS = 3
@@ -110,9 +113,15 @@ def row_quotes(entry: Entry) -> list[tuple[str, str]]:
     # Quoted by construction, whatever its length: the page prints it in quotes.
     if entry.data_use:
         found.append(("data_use.quote", entry.data_use.quote))
+    if entry.remaining_free:
+        found.append(("remaining_free.quote", entry.remaining_free.quote))
     # The words a keyed lane's Codex profile rests on (see models.CodexRoute).
     if entry.api and entry.api.codex and entry.api.codex.quote:
         found.append(("api.codex.quote", entry.api.codex.quote))
+    if lane := entry.api or entry.client_lane:
+        field = "api" if entry.api else "client_lane"
+        found.extend((f"{field}.model_bindings.{mid}.quote", b.quote)
+                     for mid,b in lane.model_bindings.items() if mid in lane.model_ids)
     if entry.page_catalog:
         from .page_catalog import catalog_quotes
         found.extend(catalog_quotes(entry.page_catalog))
@@ -121,15 +130,62 @@ def row_quotes(entry: Entry) -> list[tuple[str, str]]:
     found.extend((f"quotas[{i}].reset", q.reset) for i, q in enumerate(entry.quotas) if q.reset)
     found.extend((f"quotas[{i}].condition_quote", q.condition_quote)
                  for i, q in enumerate(entry.quotas) if q.condition_quote)
+    found.extend((f"probe.model_exclusions[{i}].quote", e.quote)
+                 for i, e in enumerate(entry.probe.model_exclusions))
     return found
 
 
 def row_quote_source(entry: Entry, field: str) -> str | None:
+    if field == "remaining_free.quote" and entry.remaining_free:
+        return entry.remaining_free.source
+    if match := re.fullmatch(r"probe\.model_exclusions\[(\d+)\]\.quote", field):
+        return entry.probe.model_exclusions[int(match[1])].source
+    if (match := re.fullmatch(r"(?:api|client_lane)\.model_bindings\.(.+)\.quote", field)) and (lane := entry.api or entry.client_lane):
+        return lane.model_bindings[match[1]].source
     if match := re.fullmatch(r"quotas\[(\d+)\]\.(?:quote|reset|condition_quote|period_quote)", field):
         return entry.quotas[int(match[1])].source
     if entry.page_catalog and (match := re.fullmatch(r'page_catalog\.conditions\.(.+)\.quote',field)):
         return entry.page_catalog.conditions[match[1]].source or entry.page_catalog.source
+    if entry.page_catalog and (match := re.fullmatch(r'page_catalog\.budgets\[(\d+)\]\.amount_quote', field)):
+        return entry.page_catalog.budgets[int(match[1])].amount_source
     return entry.page_catalog.source if entry.page_catalog and field.startswith("page_catalog.") else None
+
+
+def model_binding_changes(entry: Entry, bodies: dict[str, str]) -> list[str]:
+    """Check a bound route's identity text and optional model-card link."""
+    class Links(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.hrefs = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == 'a' and (href := dict(attrs).get('href')):
+                self.hrefs.append(href)
+
+    notes = []
+    lane = entry.api or entry.client_lane
+    for mid, binding in lane.model_bindings.items() if lane else []:
+        if mid not in lane.model_ids:
+            continue
+        body = bodies.get(binding.source)
+        if body is None:
+            notes.append(f"model binding {mid}: source could not be checked")
+            continue
+        if binding.read == "catalog":
+            from .prober import _catalog_items, _model_id
+            items = _catalog_items(httpx.Response(200, text=body)) or []
+            models = [m for m in items if _model_id(m) == mid]
+            values = [str(models[0].get(key) or '') for key in ('name', 'model_name', 'description', 'desc')] if len(models) == 1 else []
+            if not any(flatten(binding.quote) in flatten(value) for value in values):
+                notes.append(f"model binding {mid}: identity quote missing, changed or ambiguous in this catalog row")
+        elif flatten(binding.quote) not in page_texts(body)[0]:
+            notes.append(f"model binding {mid}: identity quote no longer on its source")
+        if binding.target:
+            links = Links()
+            links.feed(body)
+            if binding.target not in {urljoin(binding.source,href) for href in links.hrefs}:
+                notes.append(f"model binding {mid}: model-card target no longer linked")
+    return notes
 
 
 def quote_found(quote: str, pages: list[str]) -> bool:
@@ -142,12 +198,26 @@ def quote_found(quote: str, pages: list[str]) -> bool:
     return all(any(f in page for page in pages) for f in fragments)
 
 
+def model_exclusion_changes(entry: Entry, bodies: dict[str, str]) -> list[str]:
+    notes = []
+    for excluded in entry.probe.model_exclusions:
+        body = bodies.get(excluded.source)
+        if body is None:
+            notes.append("model table: exclusion source could not be checked: " + excluded.name)
+        elif not quote_found(excluded.quote, page_texts(body)):
+            notes.append("model table: exclusion reason no longer evidenced: " + excluded.name)
+    return notes
+
+
 def row_urls(entry: Entry, page: str | None = None) -> list[str]:
     """The row's sources, its probe's page — `page` where the probe follows an
     index to it, the endpoint otherwise — its catalog, the page its word on
     training is quoted from and the page that sets Codex up on its lane."""
     urls = list(entry.source_urls) + [page or entry.probe.endpoint]
+    if entry.archive_review:
+        urls.extend(entry.archive_review.sources)
     urls.extend(q.source for q in entry.quotas)
+    urls.extend(e.source for e in entry.probe.model_exclusions)
     if entry.probe.catalog:
         urls.append(entry.probe.catalog)
     if entry.data_use:
@@ -156,18 +226,36 @@ def row_urls(entry: Entry, page: str | None = None) -> list[str]:
         urls.append(entry.api.codex.source)
     if entry.access:
         urls.append(entry.access.source)
+    if entry.remaining_free:
+        urls.append(entry.remaining_free.source)
+        if entry.remaining_free.access:
+            urls.append(entry.remaining_free.access.source)
     if lane := entry.api or entry.client_lane:
         urls.extend(a.source for a in lane.model_access.values())
+        urls.extend(b.source for mid,b in lane.model_bindings.items() if mid in lane.model_ids)
     if entry.page_catalog:
+        from .page_catalog import catalog_sources
         urls.append(entry.page_catalog.source)
-        urls.extend(c.source for c in entry.page_catalog.conditions.values() if c.source)
+        urls.extend(catalog_sources(entry.page_catalog))
         urls.extend(a.source for a in entry.page_catalog.model_access.values())
         urls.extend(m.first_free.source for m in entry.page_catalog.models if m.first_free)
     return list(dict.fromkeys(urls))
 
 
+def catalog_urls(entry: Entry) -> set[str]:
+    """Known JSON/API reads remain on their original HTTP transport."""
+    urls = {entry.probe.catalog} if entry.probe.catalog else set()
+    if lane := entry.api or entry.client_lane:
+        urls.update(b.source for b in lane.model_bindings.values() if b.read == "catalog")
+    if entry.probe.type is ProbeType.API_MODELS or entry.probe.follow is not None:
+        urls.add(entry.probe.endpoint)
+    urls.update(q.source for q in entry.quotas if q.read == "catalog")
+    return urls
+
+
 async def fetch_pages(client: httpx.AsyncClient, urls: list[str],
-                      by_url: dict[str, list[str]] | None = None) -> tuple[list[str], list[str]]:
+                      by_url: dict[str, list[str]] | None = None, *,
+                      catalogs: set[str] | None = None) -> tuple[list[str], list[str]]:
     """The flattened rendered text and raw body of every url that answered, and
     a line for each that did not — a quote is only as checked as its sources."""
     sem = asyncio.Semaphore(CONCURRENCY)
@@ -176,9 +264,11 @@ async def fetch_pages(client: httpx.AsyncClient, urls: list[str],
         async with sem:
             try:
                 resp = await client.get(url, timeout=TIMEOUT, follow_redirects=True)
+                if url not in (catalogs or set()):
+                    resp = await recover_page(client, resp)
             except httpx.HTTPError as exc:
                 return url, f"{url}: {type(exc).__name__}"
-        if resp.status_code >= 400:
+        if not page_response_ok(resp):
             return url, f"{url}: HTTP {resp.status_code}"
         return url, page_texts(resp.text)
 
@@ -214,7 +304,7 @@ async def check_entries(entries: list[Entry], client: httpx.AsyncClient,
             continue
         page = await probe_page_url(client, entry.probe) if entry.probe.follow else None
         by_url = {}
-        pages, failed = await fetch_pages(client, row_urls(entry, page), by_url)
+        pages, failed = await fetch_pages(client, row_urls(entry, page), by_url, catalogs=catalog_urls(entry))
         if failed:
             unread[entry.id] = failed
         for field, quote in quotes:
@@ -271,8 +361,9 @@ async def _amain(registry: Path, ids: list[str], report: bool = False) -> int:
     if ids:
         entries = [e for e in entries if e.id in ids]
     today = date.today()
-    async with httpx.AsyncClient(headers=UA) as client:
-        missing, unread = await check_entries(entries, client, today)
+    with page_evidence(Path("failures/page-reads")):
+        async with httpx.AsyncClient(headers=UA) as client:
+            missing, unread = await check_entries(entries, client, today)
     read = live_rows(entries, today)
     quotes = sum(len(row_quotes(e)) for e in read)
     if report:

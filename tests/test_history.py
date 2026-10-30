@@ -150,6 +150,28 @@ def test_a_row_deleted_before_rows_were_archived_joins_the_archive_without_a_sec
     assert diff_state(replay(added + removed), restored, NOW) == []
 
 
+def test_writer_restores_a_legacy_removed_row_without_resetting_its_arrival(tmp_path):
+    """A historical removal predates Archive; its live return keeps the same ID
+    and original first_seen, rather than appending a contradictory new Added."""
+    first = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    later = date(2026, 10, 26)
+    clock = datetime(2026, 10, 26, 15, tzinfo=timezone.utc)
+    old = diff_state({}, registry_state([make(last_verified=first.date())], first.date()), first)
+    old += diff_state(replay(old), {}, NOW)
+    registry, history = tmp_path / 'registry.yaml', tmp_path / 'history.jsonl'
+    append_history(history, old)
+    prefix = history.read_bytes()
+    row = make(last_verified=later)
+    save_registry(registry, [row])
+
+    block = record_changes(registry, history, later, clock)
+
+    assert [(e.event, e.id) for e in block] == [(EventType.RESTORED, 'example')]
+    assert history.read_bytes().startswith(prefix)
+    assert [(e.id, e.ts.date()) for e in load_history(history) if e.event is EventType.ADDED] == [('example', row.first_seen)]
+    assert record_changes(registry, history, later, clock) == []
+
+
 def test_a_row_deleted_from_the_registry_is_refused_rather_than_recorded(tmp_path: Path):
     """A row leaves the list through the Archive and nowhere else: a render that
     finds one deleted stops before the history records its removal, so the
@@ -194,13 +216,13 @@ def test_an_id_deleted_from_the_registry_is_removed():
     assert events[0].name == "Example"
 
 
-def test_a_removed_id_that_comes_back_is_an_addition_again():
+def test_a_removed_id_that_comes_back_is_restored():
     recorded = replay(diff_state({}, registry_state([make()], TODAY), NOW))
     recorded = replay(diff_state(recorded, registry_state([], TODAY), NOW))
 
     events = diff_state(recorded, registry_state([make()], TODAY), NOW)
 
-    assert [(e.event, e.id) for e in events] == [(EventType.ADDED, "example")]
+    assert [(e.event, e.id) for e in events] == [(EventType.RESTORED, "example")]
 
 
 # ---- the free-model list ---------------------------------------------------
@@ -367,6 +389,28 @@ def test_the_lines_a_commit_appends_are_the_changes_its_registry_makes():
 
 
 # ---- record_changes, end to end --------------------------------------------
+
+@pytest.mark.parametrize('defect', ['mixed', 'future', 'before-base'])
+def test_writer_repairs_unpublished_clocks_without_rewriting_the_committed_prefix(tmp_path, defect):
+    registry, history = tmp_path / 'registry.yaml', tmp_path / 'history.jsonl'
+    save_registry(registry, [make()])
+    record_changes(registry, history, TODAY, NOW)
+    committed = history.read_text()
+    save_registry(registry, [make(), make('second'), make('third')])
+    block = diff_state(replay(load_history(history)), registry_state([make(), make('second'), make('third')], TODAY), LATER)
+    if defect == 'mixed':
+        block[0].ts = NOW + timedelta(minutes=1)
+    elif defect == 'future':
+        for event in block:
+            event.ts = LATER + timedelta(hours=1)
+    else:
+        for event in block:
+            event.ts = NOW - timedelta(hours=1)
+    append_history(history, block)
+    written = record_changes(registry, history, TODAY, LATER, committed=committed)
+    assert {event.ts for event in written} == {LATER}
+    assert history.read_text().startswith(committed)
+    assert [event.id for event in load_history(history)] == ['example', 'second', 'third']
 
 def test_recording_reads_the_registry_and_writes_only_what_changed(tmp_path: Path):
     registry = tmp_path / "registry.yaml"

@@ -18,6 +18,95 @@
 # Delete a record to make the scout free to propose the service again.
 
 watched:
+  - domains: [aws.amazon.com]
+    name: Amazon Q Developer
+    checked_on: '2026-10-26'
+    reason: >-
+      The current Amazon Q Developer end-of-support announcement closes new Free
+      accounts and new subscriptions from May 15, 2026. Existing subscriptions can
+      add users and existing IDE users retain access until April 30, 2027. This is
+      a new-user eligibility exclusion, not a claim that all existing users lost
+      the product in May. Source:
+      https://aws.amazon.com/blogs/devops/amazon-q-developer-end-of-support-announcement/.
+    reopen_if: >-
+      AWS reopens Free account creation or documents a new bundled free coding
+      offer reachable by new users. Check existing-user access independently.
+  - domains: [hyper.charm.land]
+    name: Charm Hyper
+    checked_on: '2026-10-15'
+    reason: >-
+      The current FAQ (https://hyper.charm.land/faq, also served as
+      https://hyper.charm.land/prose/faq) explicitly retires the monthly free
+      Hypercredit allowance. Remaining access requires paid Shred/Business
+      subscriptions or prepaid credits starting at $5. Older billing docs
+      (https://hyper.charm.land/docs/plans-billing.html) and the Crush README
+      still describe the previous free plan; that conflicts with the current
+      retirement notice. The archived row preserves the previous offer.
+    reopen_if: >-
+      Current primary terms restore bundled free usage or a usable free grant.
+      Reconcile the current FAQ, billing docs and account eligibility before
+      restoring the existing row.
+  - domains: [blueclaw.network]
+    name: Blue Claw Network
+    checked_on: '2026-10-15'
+    reason: >-
+      Current onboarding (https://blueclaw.network/ and
+      https://blueclaw.network/quickstart) requires buying prepaid credits
+      before API use and no longer advertises the previous $5 welcome grant.
+      The terms (https://blueclaw.network/terms) describe promotional credits
+      generically but establish no current signup amount or eligibility.
+      The public portal shows email sign-in without a free-grant claim.
+      An account-specific grant has not been measured. The archived row
+      preserves the previously published offer.
+    reopen_if: >-
+      A current primary offer establishes a usable free model quota, recurring
+      credit or signup grant. Check exact eligibility and any initial-payment
+      condition before restoring the existing row.
+  - domains: [yolo-auto.com]
+    name: Yolo-Auto
+    checked_on: '2026-10-15'
+    reason: >-
+      The current pricing page gives Free accounts 0 requests/week and
+      requires a paid plan for API inference, starting at $19/month
+      (https://yolo-auto.com/pricing). The model catalog labels inference
+      access as paid (https://yolo-auto.com/models). No-card account
+      creation does not include a usable inference allowance. The
+      previously listed offer and its history remain in the archived row.
+    reopen_if: >-
+      Primary terms introduce a positive free API allowance or usable
+      trial compute without a recurring paid subscription. Restore the
+      existing row after checking current activation and model conditions.
+  - domains: [beatapi.io]
+    name: BeatAPI
+    checked_on: '2026-10-13'
+    reason: >-
+      The current free price table (https://beatapi.io/pricing) advertises
+      GPT-6.1 Sol, DeepSeek V4 and V4.1 Flash, GLM 5.3 and 5.3 Flash, and
+      Gemini 3.8 Flash at zero input and output cost under separate free IDs.
+      The product page says no card or top-up is required
+      (https://beatapi.io/gpt-6-1-sol-api); the free-route docs support
+      Responses and Chat Completions
+      (https://docs.beatapi.io/text-api/gpt-6-1-sol-free).
+      Free calls share one successful request per minute per account before
+      the first top-up and at most ten afterward
+      (https://docs.beatapi.io/faq/account-billing). Daily allowance and
+      continued availability are not guaranteed. The seventh free item,
+      JEV, returns typed decisions rather than generated text
+      (https://docs.beatapi.io/decisions). Public terms and routing information
+      (https://beatapi.io/terms-of-service and https://beatapi.io/llms.txt)
+      do not establish self-hosted inference or named authorized upstream
+      capacity for the free text routes. That does not establish unauthorized
+      proxying. The model catalog and fresh Chat Completions and Responses
+      requests without a key return 401; authenticated zero-balance
+      completion and a tool round trip remain unverified.
+    reopen_if: >-
+      BeatAPI establishes self-hosted inference or named authorized upstream
+      capacity for its free text routes, and a no-card account demonstrates
+      free completion and a valid tool-result round trip with the advertised
+      ID and payment conditions. Re-read current free prices, daily allowance
+      and promotion terms before inclusion; any documented initial payment
+      is an access condition, not an automatic rejection.
+
   - domains: [blockrun.ai]
     name: BlockRun
     checked_on: '2026-10-05'
@@ -150,46 +239,6 @@ watched:
       Supermaven takes new users again with a free plan that includes chat,
       agent use or an API.
 
-  - domains: [novita.ai]
-    name: Novita AI
-    checked_on: '2026-08-14'
-    reason: >-
-      Listed here from 2026-07-19 until 2026-08-14, when a hand check found the
-      free lane gone with no announcement anywhere. novita.ai/pricing carries
-      102 published prices and not one of them is zero; the two models this
-      entry named as free are now billed — inclusionai/ling-3.0-flash at
-      $0.06/$0.18 per Mt and mindai/macaron-v1-venti at 15000/45000 micro-units
-      — and novita.ai/models marks every one of its 102 rows "isFree": false in
-      its own page data. The keyless catalog does carry eleven rows at
-      input_token_price_per_m 0, but they publish no pricing object, four are
-      plainly internal (ai_infer_test_1/2/3, bunny) and the rest 404 on their
-      own model pages, so that is an unpriced shelf and not an offer. What is
-      left is the ~$0.5 signup credit, and a trial is not a tier. The old probe
-      passed through all of this because it anchored on the id
-      "ling-3.0-flash" plus the word "free" — both still on the page — instead
-      of on the price beside the id.
-    reopen_if: >-
-      novita.ai/pricing shows a zero price, or a model on novita.ai/models
-      carries "isFree": true.
-
-  - domains: [aionlabs.ai]
-    name: Aion Labs
-    checked_on: '2026-08-14'
-    reason: >-
-      Re-checked 2026-08-14, and the first reason recorded here was wrong: this
-      is an LLM API vendor, not the email-agent company of the same name. The
-      site sells "Powerful AI Models & Agents" with "access via an
-      OpenAI-compatible API"; api.aionlabs.ai/v1/models answers
-      keyless with four models — aion-2.0, aion-3.0, aion-3.0-mini and
-      aion-rp-llama-3.1-8b, roleplay and storytelling variants of DeepSeek and
-      GLM. The verdict is unchanged for a different reason: every one of the
-      four publishes a price and none of them is zero, the cheapest being
-      aion-3.0-mini at $0.0000007 per prompt token. Note the catalog answers
-      {"models": [...]} rather than the OpenAI {"data": [...]} shape, so an
-      api-models probe here would need that read first.
-    reopen_if: >-
-      A zero-priced row appears in the api.aionlabs.ai catalog.
-
   - domains: [tokenrouter.io]
     name: TokenRouter.io
     checked_on: '2026-08-05'
@@ -220,15 +269,29 @@ watched:
 
   - domains: [arcee.ai]
     name: Arcee (Trinity)
-    checked_on: '2026-07-22'
+    checked_on: '2026-10-22'
     reason: >-
-      Direct API grants are application-gated, and an application with a
-      selection step is not an offer a developer can simply use — the same bar
-      that keeps TokenRouter's builder programme out of its entry. The :free
-      Trinity variants that are open live on OpenRouter, which this list
-      already covers.
+      Current direct API documentation prices every listed model and publishes
+      no automatic signup credit or no-payment API allowance. The quickstart
+      requires an account and API key and points to the wallet for top-ups.
+      The documented free chat app and Trinity routes on OpenRouter do not
+      establish a free direct API offer.
     reopen_if: >-
-      Arcee opens direct API credits without an application.
+      Arcee publishes directly usable API credits or a free model allowance
+      without an application or recurring paid subscription.
+
+  - domains: [uncloseai.com, hermes.ai.unturf.com]
+    name: uncloseai (unturf)
+    checked_on: '2026-10-22'
+    reason: >-
+      The Hermes catalog and fresh ordinary, streaming and invalid-key calls
+      return 401 public_beta_closed: the public beta is closed, an API key is
+      required and key registration is closed. The website still describes
+      the keyless endpoint, contradicting the live service. The published row
+      and its history are retained in Archive.
+    reopen_if: >-
+      The public endpoint reopens or the operator documents an obtainable
+      free API key and current callable chat model.
 
   - domains: [ofox.ai]
     name: OfoxAI
@@ -518,20 +581,20 @@ watched:
       AI Horde's OpenAI route accepts tool definitions, or it publishes a
       set of models it keeps available.
 
-  - domains: [together.ai, together.xyz]
+  - domains:
+    - together.ai
+    - together.xyz
     name: Together AI
-    checked_on: '2026-08-14'
-    reason: >-
-      Serverless inference priced per token with no free lane on its own pages.
-      together.ai/pricing is a per-1M-token table whose cheapest row is still
-      paid, and the word "free" does not occur once in the served text of that
-      page, of docs.together.ai/docs/serverless/rate-limits, or of the
-      quickstart; no model id ending in -Free is served on any of the three.
-      The rate-limit page talks about bursts and real-time capacity and never
-      about a tier.
-    reopen_if: >-
-      Together publishes a free tier or a zero-priced model row, or a model id
-      ending in -Free returns to its catalog.
+    checked_on: '2026-10-14'
+    reason: Primary pricing now lists Ternary Bonsai 27B at zero input and output price,
+      replacing the old all-paid verdict. Official billing requires an initial $15 credit
+      purchase and offers no free trial. The competitor claim of 98 free Together models
+      is unsupported by primary pricing. Exact independent free access after activation has
+      not been established; no purchase was made. An initial payment is an access condition,
+      not automatic disqualification.
+    reopen_if: Primary sources establish the exact zero-priced API ID and activation conditions,
+      and an authorized funded account confirms the independent free lane; or the activation
+      payment is removed.
 
   - domains: [perplexity.ai]
     name: Perplexity (Sonar API)
@@ -733,20 +796,21 @@ watched:
       Blackbox publishes a free tier with a token or request allowance, on the
       pricing page rather than in an extension listing.
 
-  - domains: [orcarouter.ai]
+  - domains:
+    - orcarouter.ai
     name: OrcaRouter
-    checked_on: '2026-08-14'
-    reason: >-
-      A router whose free plan is free routing, not free tokens: "Hacker Free
-      Forever. Zero markup on all tokens ... 3 API keys · 0% token markup", and
-      in its own words "You pay each provider's published rate; OrcaRouter adds
-      $0 per token". Its structured pricing data agrees — an Offer named "Free"
-      at price 0 with the description "Pay provider cost only". That is the
-      standing rule here that a zero in a price column is not a lane you can
-      reach: nothing is granted, the $0 is the fee for the routing.
-    reopen_if: >-
-      OrcaRouter grants credits or a free model lane of its own, rather than
-      charging nothing to pass a paid one through.
+    checked_on: '2026-10-14'
+    reason: The free-routing-only verdict is outdated. The active public free-package and
+      pricing APIs name four generative zero-price aliases beside the OrcaVerify classifier.
+      Baseline access is 10 requests/minute and 50/day without a top-up; HY4 Preview has
+      a separate 50/minute and 250/day baseline. Established GitHub linkage gates free access.
+      Docs describe an unpublished prompt cap and separate access-denied, quota and capacity
+      failures; free IDs do not fall back to paid IDs. Terms name Continuum AI Pte. Ltd.
+      and commercial upstream providers, but actual free-lane supply and eligible-account
+      generation remain unproved. Classifier access does not add a coding model.
+    reopen_if: An authorized established-GitHub account confirms the generative free lane,
+      its serving route and current prompt/plan limits, while primary free-package and pricing
+      APIs still agree.
 
   - domains: [aibadgr.com]
     name: Badgr
@@ -1850,22 +1914,27 @@ watched:
 
   - domains: [naga.ac]
     name: NagaAI
-    checked_on: '2026-09-14'
+    checked_on: '2026-10-13'
     reason: >-
-      The free tier is published — "Start free on zero-cost models", 15+
-      models at 10 RPM and 100 RPD — and what it serves is other gateways'
-      free lanes: the :free ids in its keyless catalog are
-      ling-3.0-flash-vl:free, ling-3.0-flash-sante:free,
-      ling-3.0-flash-fin:free, nex-n2.5-pro:free, nex-n2.5-mini:free,
-      dots-3-note-preview:free, lfm-2.5-2.6b:free and
-      nemotron-3.5-lightning:free, the lane OpenRouter and Kilo already carry
-      here. The paid catalog prices frontier models well under their makers'
-      rates — gpt-5.6-sol at $1/$5 per 1M against OpenAI's $4/$20,
-      claude-sonnet-5 at $1/$5 — with no statement of where they are served
-      from.
+      The site and public catalog are live. The documented :free models
+      cost nothing and share 10 RPM and 100 RPD per account
+      (https://docs.naga.ac/build/rate-limits). Routing documentation says
+      requests go to changing third-party providers, whose identity is
+      never disclosed in responses and cannot be selected or excluded
+      (https://docs.naga.ac/build/routing). It does not establish self-hosted
+      inference or named authorized upstream capacity. Matching model IDs
+      or lower prices alone do not establish unauthorized proxying. The
+      terms require purchasing credits while the pricing and billing docs
+      advertise zero-cost models; fresh missing-key and invalid-key
+      requests both return 401, so no zero-balance completion is established.
+      Free-model data collection for training by NagaAI and its partners is
+      always enabled (https://naga.ac/legal/privacy).
     reopen_if: >-
-      NagaAI's free lane carries a model it serves itself, or it states where
-      its below-list frontier capacity comes from.
+      NagaAI discloses self-hosted inference or named authorized upstream
+      providers and documents the free lane's payment and eligibility
+      conditions, including any minimum initial payment. A documented
+      one-time deposit is a condition, not an automatic rejection; model-ID
+      overlap alone is not a rejection reason.
 
   - domains: [commandcode.ai]
     name: Command Code
@@ -2377,17 +2446,6 @@ watched:
     reopen_if: >-
       Qiniu opens AI inference to accounts outside mainland China without
       real-name verification.
-
-  - domains: [iteracompute.com]
-    name: IteraCompute
-    checked_on: '2026-09-17'
-    reason: >-
-      Nine chat models priced per token in a keyless catalog that marks every
-      row `is_free: false`; neither the home page nor the docs page names a free
-      allowance, a trial or a signup credit (2026-09-17).
-    reopen_if: >-
-      A row marked free in the catalog, or a signup credit with a figure on a
-      vendor page.
 
   - domains: [edenai.co, edenai.run]
     name: Eden AI
@@ -3765,3 +3823,42 @@ watched:
     reopen_if: >-
       Hugging Face publishes bundled free inference usage or a no-card trial
       available to free accounts, without buying credits or a subscription.
+
+  - domains:
+    - moondream.ai
+    name: Moondream Cloud
+    checked_on: '2026-10-14'
+    reason: The primary Free plan is $0/month with $5/workspace/month in shared usage credits.
+      The official OpenAI guide names moondream3.1-9b-a2b and moondream3-preview, multi-turn
+      text/image chat and SSE. Stop sequences and tool/function calling are explicitly unsupported,
+      so an OpenAI-compatible label does not establish a coding-agent tool loop. Remote image
+      URLs are rejected; only base64 data URLs work. Local Photon usage is separate. Keyed
+      activation and the initial credit balance have not been established.
+    reopen_if: The official cloud API supports the coding-agent tool loop, with current Free
+      activation/payment conditions and an authorized representative completion.
+
+  - domains:
+    - gizmoplatforms.com
+    name: Gizmo API
+    checked_on: '2026-10-14'
+    reason: The developer page advertises a no-card Free API allowance of 1,000 zero-cost-model
+      requests per calendar month, shared across keys and models, with 20 requests/minute.
+      Terms instead require paid membership for service access. Developer pricing does not
+      resolve that conflict or establish an independently usable tool-calling lane. No signed-in
+      eligibility or completion was established.
+    reopen_if: Terms and developer pricing agree that API Free needs no recurring paid membership,
+      and exact free model/tool and supply conditions can be verified.
+
+  - domains:
+    - plugsky.com
+    name: Plugsky
+    checked_on: '2026-10-14'
+    reason: Docs distinguish permanent $0 Micro/Lite aliases from a seven-day trial. The
+      catalog describes changeable upstreams and fallback chains conditional on health, plan
+      and budget; aliases cannot be copied as independently free upstream families. The shared
+      ceiling is 30 requests/minute and five concurrent requests; token allowance is unpublished.
+      The Terms link returned the home page. Activation/payment, free supply and model-specific
+      tool behavior remain unresolved.
+    reopen_if: Readable Terms and plan documents establish the permanent free API and its
+      supply/activation conditions; an authorized tool-loop request verifies the free alias
+      and fallback constraints.

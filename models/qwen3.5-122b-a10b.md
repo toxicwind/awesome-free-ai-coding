@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'qwen3.5-122b-a10b free: 2 providers, limits and ids, verified 2026-10-08'
-description: qwen3.5-122b-a10b is served free by Alibaba Cloud Model Studio (DashScope, international) and Regolo AI. None asks for a card. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'qwen3.5-122b-a10b free: 2 providers, limits and ids, provider probes 2026-10-26'
+description: qwen3.5-122b-a10b is served free by Alibaba Cloud Model Studio (DashScope, international) and Regolo AI. None asks for a card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/qwen3.5-122b-a10b/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: qwen3.5-122b-a10b
 ---
 
@@ -11,7 +11,7 @@ crumb: qwen3.5-122b-a10b
 
 # Where qwen3.5-122b-a10b is free
 
-**2 rows on the list serve `qwen3.5-122b-a10b` free:** Alibaba Cloud Model Studio (DashScope, international) and Regolo AI. None asks for a card. The published offers were checked on 2026-10-08 and are rechecked twice a week. It measures **notable**: in the upper half of the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/models/qwen3-5-122b-a10b), below its strong bar.
+**2 rows on the list serve `qwen3.5-122b-a10b` free:** Alibaba Cloud Model Studio (DashScope, international) and Regolo AI. None asks for a card. The providers' last scheduled probes were on 2026-10-26; their offers are rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,16 +19,20 @@ crumb: qwen3.5-122b-a10b
 
 ### [Alibaba Cloud Model Studio (DashScope, international)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/alibaba-model-studio/)
 
-🔌 LLM APIs with free tier · no card · not offered in mainland China · verified 2026-10-08 · listed since 2026-09-25
+🔌 LLM APIs with free tier · no card · not offered in mainland China · last probe 2026-10-26 · listed since 2026-09-25
 
-A million free tokens on each of its chat models in the Singapore region — Qwen, DeepSeek and GLM among them — valid 90 days from activation or the model's release; OpenAI-compatible
+Model-specific free token grants in Singapore, typically one million tokens valid for 90 days; some models retain only previously issued allowances; OpenAI-compatible
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
 
-- Limits, in the vendor's words: Typical signup grant: 1,000,000 tokens once per account per model (Valid for 90 days from activation, model release or approval, whichever is later)
+- Limits, in the vendor's words: Typical model token grant: 1,000,000 tokens once per account per model (Where granted; valid for 90 days from activation, model release or approval, whichever is later)
 
-Free grants apply in Singapore (international) only, independently per model and dated snapshot. The model pricing tables decide eligibility: Kimi has no free-quota column and glm-5.2-fast-preview has none. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default.
+Removed model-grant campaigns: Usage allowance: see your account for values (period not published) per account per model (only previously issued quotas, until expiry or exhaustion; no new grants)
+
+Separate OAuth allowance: 2,000 requests/day; scope not published (separate from API-key token grants)
+
+Free token grants apply in Singapore (international), independently per model and dated snapshot. Current pricing tables decide new-grant eligibility. Some older models and snapshots no longer receive new grants; previously issued quotas remain usable until expiry or exhaustion. Check the console for each model's remaining quota. Kimi and glm-5.2-fast-preview have no API-key grant. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default. OAuth has a separate allowance; its eligible models and reset time are not established here.
 
 </details>
 
@@ -39,7 +43,7 @@ Free grants apply in Singapore (international) only, independently per model and
 
 ### [Regolo AI](https://mvalentsev.github.io/awesome-free-ai-coding/providers/regolo/)
 
-🎁 Trials (no card when possible) · no card · verified 2026-10-08 · listed since 2026-09-27
+🎁 Trials (no card when possible) · no card · last probe 2026-10-26 · listed since 2026-09-27
 
 EU (Italian) zero-retention inference; a month of full model access on a daily token allowance, no card
 
@@ -67,6 +71,6 @@ EU (Italian) zero-retention inference; a month of full model access on a daily t
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

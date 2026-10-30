@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Z.ai (Zhipu GLM) free tier: limits, free models, verified 2026-10-08'
+title: 'Z.ai (Zhipu GLM) free tier: limits, free models, verified 2026-10-26'
 description: 'GLM Flash models free on the API, vision included (OpenAI-compatible at api.z.ai/api/paas/v4). Free models: glm-4.7-flash, glm-4.5-flash, glm-4.6v-flash. GLM-4.7-Flash, GLM-4.5-Flash and GLM-4.6V-Flash have free input and output prices. The flagship rows'' limited-time-free cached-storage column…'
 permalink: /providers/zai-glm/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: Z.ai (Zhipu GLM)
 ---
 
@@ -11,7 +11,7 @@ crumb: Z.ai (Zhipu GLM)
 
 # Z.ai (Zhipu GLM) free tier
 
-🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-08 · [z.ai](https://z.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-26 · [z.ai](https://z.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -54,9 +54,10 @@ curl -s https://api.z.ai/api/paas/v4/chat/completions \
 
 ## Evidence
 
-- Probe: the page at <https://docs.z.ai/guides/overview/pricing>, anchored on `GLM-4.7-Flash</td><td style="text-align:left">Free</td>`, `GLM-4.5-Flash</td><td style="text-align:left">Free</td>`, `GLM-4.6V-Flash</td><td style="text-align:left">Free</td>`
+- Probe: the page at <https://docs.z.ai/guides/overview/pricing.md>, anchored on `GLM-4.7-Flash | Free | Free | Free | Free`, `GLM-4.5-Flash | Free | Free | Free | Free`, `GLM-4.6V-Flash | Free | Free | Free | Free`
 - Source: <https://docs.z.ai/guides/overview/pricing>
 - Source: <https://docs.z.ai/devpack/tool/claude>
+- Source: <https://docs.z.ai/guides/overview/pricing.md>
 
 ## History
 
@@ -68,6 +69,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

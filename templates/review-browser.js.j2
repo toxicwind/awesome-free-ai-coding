@@ -11,7 +11,10 @@ async (page) => {
     records.push({id,metrics,url:page.url(),...extra});
   };
   const go = async url => {
-    const response = await page.goto(url,{waitUntil:'domcontentloaded'});
+    // Fragment navigation may return null; reload to retain the HTTP check.
+    // https://playwright.dev/docs/api/class-page#page-goto, checked 2026-10-14.
+    const response = await page.goto(url,{waitUntil:'domcontentloaded'}) ||
+      await page.reload({waitUntil:'domcontentloaded'});
     if(!response || response.status()!==200) throw Error('Page HTTP '+response?.status()+': '+url);
   };
   const folds = async body => {
@@ -35,6 +38,71 @@ async (page) => {
         await page.emulateMedia({colorScheme:scheme});
         const prefix=width+'/'+scheme+'/';
         if(!Array.from(selected).some(id=>id.startsWith(prefix))) continue;
+        for(const client of plan.clients || []) {
+          if(!selected.has(prefix+'config/'+client)) continue;
+          await go(plan.site+'?review='+plan.sha+'#plug');
+          await page.locator('#config-client').selectOption(client);
+          const choices=await page.locator('#config-provider option').evaluateAll(es=>es.map(e=>e.value).filter(Boolean));
+          const data=await page.locator('#client-configs').textContent();
+          const rows=JSON.parse(data)[client];
+          if(JSON.stringify(choices)!==JSON.stringify(rows.map(r=>r.id))) throw Error('Client choices disagree');
+          for(const row of rows) {
+            await page.locator('#config-provider').selectOption(row.id);
+            const result=page.locator('#config-result');
+            const text=await result.innerText();
+            if(!text.includes(row.command)||!text.includes(row.model)||!text.includes(row.route)) throw Error('Wrong client result: '+row.id);
+            if(row.access&&!text.includes(row.access)) throw Error('Hidden access condition: '+row.id);
+            for(const path of row.files) if(!await result.locator('a[href="'+plan.repository+'/blob/main/'+path+'"]').count()) throw Error('Wrong config link: '+path);
+            const selection=new URL(page.url()).searchParams;
+            if(selection.get('client')!==client || selection.get('provider')!==row.id) throw Error('Configuration missing from shared URL');
+            for(const model of row.models) {
+              await page.locator('#config-model').selectOption(model.id);
+              const selected=await result.innerText();
+              if(!selected.includes(model.command)||!selected.includes('Model: '+model.model)) throw Error('Selected model lost: '+row.id+'/'+model.id);
+              if(model.access&&!selected.includes(model.access)) throw Error('Selected model access hidden');
+              if(new URL(page.url()).searchParams.get('model')!==model.id) throw Error('Selected model missing from URL');
+            }
+            await page.locator('#config-model').selectOption(row.models[0].id);
+          }
+          if(rows.length) {
+            const last=rows[rows.length-1];
+            await page.reload({waitUntil:'domcontentloaded'});
+            if(await page.locator('#config-client').inputValue()!==client || await page.locator('#config-provider').inputValue()!==last.id) throw Error('Configuration lost on reload');
+            if(!(await page.locator('#config-result').innerText()).includes(last.command)) throw Error('Restored command differs');
+          }
+          await record(prefix+'config/'+client,{choices:choices.length});
+        }
+        if(selected.has(prefix+'search-flow')) {
+          const [first,second]=plan.search_rows;
+          await go(plan.site+'?q='+encodeURIComponent(first.name)+'#search');
+          await page.locator('#results a[href="'+first.page+'"]').waitFor();
+          await page.locator('#q').fill(second.name);
+          await page.locator('#q').press('Enter');
+          await page.waitForURL(second.page);
+          await go(plan.site+'?q='+encodeURIComponent(first.name)+'#search');
+          await page.locator('#q').fill(second.name);
+          await page.locator('#q').press('Escape');
+          await page.waitForTimeout(100);
+          if(!await page.locator('#search').evaluate(e=>e.hidden) || new URL(page.url()).hash==='#search') throw Error('Closed search restored by a pending update');
+          await go(plan.site+'#search');
+          const lead=await page.locator('section.listing tr[data-id]').evaluateAll(rows=>{
+            for(const row of rows) {
+              const summary=row.querySelector('td.limits summary'), full=row.querySelector('td.limits .full');
+              if(!summary||!full) continue;
+              const rest=full.textContent.toLowerCase();
+              const token=(summary.textContent.match(/\b\d[\d,]+\b/g)||[]).find(t=>!rest.includes(t));
+              if(token) return {token,page:row.querySelector('td.when a').href};
+            }
+            return null;
+          });
+          if(lead) {
+            await page.locator('#q').fill(lead.token);
+            await page.locator('#results a[href="'+lead.page+'"]').waitFor();
+            await page.locator('#to-table').click();
+            await page.locator('#rows a[href="'+lead.page+'"]').first().waitFor();
+          }
+          await record(prefix+'search-flow',{lead});
+        }
         if(Array.from(selected).some(id=>id.startsWith(prefix+'search/'))) {
         await go(plan.site+'?review='+plan.sha+'#search');
         if(plan.models.some(model=>model.rows.length)) await page.locator('#results .tries button').first().waitFor();
@@ -148,13 +216,13 @@ async (page) => {
               const allowance=catalog.budgets.find(budget=>budget.id===catalog.example_budget);
               for(const model of catalog.models) {
                 const kind=model.expired?'expired':model.hours==='unlimited'?'unmetered':model.hours!=null?'wallet':catalog.conditions[model.condition].kind;
-                const access={wallet:'shared '+period+' credits',unmetered:'unmetered offer','free-session':'free session with conditions',paid:'paid plan',specialist:'specialist tasks only',expired:'offer ended'}[kind];
+                const access={wallet:'shared '+period+' '+catalog.unit.toLowerCase(),unmetered:'unmetered offer','free-session':'free session with conditions',paid:'paid plan',specialist:'specialist tasks only',expired:'offer ended'}[kind];
                 let offer=model.name+': '+access;
                 if(model.hours!=null&&!model.expired) offer+=model.hours==='unlimited'?'; unlimited hours':'; '+model.hours+' hours with the whole '+allowance.amount+'-'+catalog.unit+' allowance';
                 if(['wallet','unmetered'].includes(kind)) offer+=model.limited?'; available in limited mode':'; full access only';
                 if(!text.includes(plain(offer))) throw Error('Provider model access: '+row.id+' '+model.name);
               }
-              for(const quote of [...Object.values(catalog.conditions).map(c=>c.quote),...(catalog.notes||[])]) if(!text.includes(plain(quote))) throw Error('Provider condition: '+row.id);
+              for(const condition of [...Object.values(catalog.conditions).map(c=>c.quote??c.note),...(catalog.notes||[])]) if(!text.includes(plain(condition))) throw Error('Provider condition: '+row.id);
               if(catalog.limited_allowance&&!text.includes(plain(catalog.limited_allowance))) throw Error('Provider limited allowance: '+row.id);
             }
             for(const model of row.models) if(!text.includes(model.family)) throw Error('Provider family: '+row.id+' '+model.family);
@@ -162,17 +230,37 @@ async (page) => {
           }
           await record(prefix+'provider/'+row.id);
         }
-        if(width!==320&&selected.has(prefix+'readme')) {
+        if(width!==320&&(selected.has(prefix+'readme')||plan.readme_images.some((_,i)=>selected.has(prefix+'readme-image/'+i)))) {
           await go(plan.repository+'?review='+plan.sha);
           await page.locator('react-app[app-name="code-view"].loaded').waitFor();
           const body=page.locator('article.markdown-body').first();await body.waitFor();
           const list=body.locator('details').filter({has:page.locator('summary',{hasText:'Where each one is free'})});
+{% if readme_model_list %}
           await list.waitFor();
+          // GitHub replaced this README node after code-view.loaded and a native
+          // click at f85e0f6 (2026-10-26). Wait for node and layout to settle first.
+          await list.evaluate(initial=>new Promise((resolve,reject)=>{
+            const label=initial.querySelector('summary').textContent;
+            const started=performance.now();let previous=null,bounds='',since=started;
+            const frame=()=>{
+              const now=performance.now();
+              const current=Array.from(document.querySelectorAll('article.markdown-body details'))
+                .find(d=>d.querySelector('summary')?.textContent===label);
+              const rect=current?.getBoundingClientRect();
+              const next=rect?[rect.x,rect.y,rect.width,rect.height].join(','):'';
+              if(!current||current!==previous||next!==bounds) {
+                previous=current;bounds=next;since=now;
+              } else if(now-since>=300) {resolve();return;}
+              if(now-started>=10000) {reject(Error('README node or layout did not settle'));return;}
+              requestAnimationFrame(frame);
+            };
+            requestAnimationFrame(frame);
+          }));
           if(await list.count()!==1) throw Error('Missing shared model list');
           if(await list.getAttribute('open')!==null) throw Error('README list initially open');
           await list.locator('summary').click();
           for(const model of plan.models.filter(m=>['strong','frontier'].includes(m.tier))) {
-            const row=body.locator('a[href="'+model.page+'"]').first().locator('xpath=ancestor::li[1]');
+            const row=list.locator('a[href="'+model.page+'"]').first().locator('xpath=ancestor::li[1]');
             if(!await row.isVisible()) throw Error('README list did not open');
             for(const id of model.rows.filter(id=>plan.rows.some(e=>e.id===id))) {
               const name=plan.rows.find(e=>e.id===id).name;
@@ -180,10 +268,16 @@ async (page) => {
             }
           }
           await list.locator('summary').click();
-          const chart=body.locator('img[alt^="Bar chart of the"]').first();
+{% else %}
+          if(await list.count()!==0) throw Error('Unexpected README model list');
+{% endif %}
+          if(await body.locator('picture img').count()!==plan.readme_images.length) throw Error('Unexpected README picture count');
+          for(const [i,alt] of plan.readme_images.entries()) {
+          if(!selected.has(prefix+'readme-image/'+i)) continue;
+          const chart=body.getByAltText(alt,{exact:true});
           await chart.scrollIntoViewIfNeeded();await chart.evaluate(img=>img.decode());
           if(!await chart.evaluate(img=>img.naturalWidth>0&&img.clientWidth>0)) throw Error('README image failed');
-          if(plan.chart_date&&!(await chart.getAttribute('alt')).includes(plan.chart_date)) throw Error('README chart date');
+          if(alt.startsWith('Bar chart of the')&&plan.chart_date&&!alt.includes(plan.chart_date)) throw Error('README chart date');
           const image=await chart.evaluate(img=>{
             const selected=Array.from(img.parentElement.querySelectorAll('source')).find(s=>matchMedia(s.media).matches);
             const url=selected?.srcset||img.src;
@@ -191,8 +285,10 @@ async (page) => {
             if(!match) throw Error('Cannot identify selected README image');
             return {image_url:img.currentSrc,image_path:match[0]};
           });
+          await record(prefix+'readme-image/'+i,image);
+          }
           if(width===1440&&scheme==='light') await page.screenshot({path:plan.output.replace('.json','-desktop.png'),fullPage:false});
-          await record(prefix+'readme',image);
+          if(selected.has(prefix+'readme')) await record(prefix+'readme');
         }
       }
     }

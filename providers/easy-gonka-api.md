@@ -3,7 +3,7 @@ layout: default
 title: 'Easy GonkaAI API free tier (archived): what it offered, and why it left the list'
 description: 'Third-party OpenAI-compatible broker to the permissionless Gonka decentralized inference network (Qwen, Kimi and other open models). Free models: minimax-m2, kimi-k2. 10M free tokens on signup (one-time trial, no card); paid usage billed in crypto'
 permalink: /providers/easy-gonka-api/
-last_modified_at: 2026-07-19
+last_modified_at: 2026-09-27
 crumb: Easy GonkaAI API
 ---
 
@@ -40,6 +40,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08. No probe reads this row any more — it left the list for good unless a reviewer brings it back; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29. No probe reads this row any more — it left the list for good unless a reviewer brings it back; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

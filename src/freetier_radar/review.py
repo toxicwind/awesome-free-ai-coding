@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import uuid
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -22,11 +23,13 @@ from . import git
 from .indexnow import index_at
 from .layout import node_for
 from .models import Entry
-from .prober import TIMEOUT, UA, _ask, probe_page_url
-from .quotes import page_texts, quote_found, row_quote_source, row_quotes, row_urls
+from .prober import TIMEOUT, UA, _ask, page_response_ok, probe_page_url
+from .quotes import catalog_urls, page_texts, quote_found, row_quote_source, row_quotes, row_urls
 from .render import PAGES_URL, REPO_URL
 
 PUSH_BASE_FLAG = '--push-base'
+PRODUCER_WORKFLOWS = {'verification': ('update.yml', 'verification'),
+                      'expiry': ('expire.yml', 'expire model promotions')}
 
 
 def now() -> str:
@@ -146,25 +149,27 @@ def prepare(repo: Path, base: str, head: str, bundle: Bundle, verification_run: 
     if result.returncode:
         raise ValueError('cannot read the push diff')
     bundle.write('push.diff.patch', result.stdout.encode())
-    registries = {}
     for ref, label in ((base, 'before'), (sha, 'after')):
         for path in ('registry.yaml', 'index.json'):
             body = blob(repo, ref, path)
             bundle.write(label + '/' + path, body)
-            if path == 'registry.yaml':
-                registries[label] = yaml.safe_load(body)['entries']
     def changed(previous, current, field):
         old = {v[field]: v for v in previous}
         new = {v[field]: v for v in current}
         return sorted(k for k in old.keys() | new.keys() if old.get(k) != new.get(k))
     def changed_pages(folder, key, field):
+        def semantic_change(path):
+            old, new = (git.show(repo, ref, path) or '' for ref in (base, sha))
+            from .page_dates import content_hash
+            return content_hash(old) != content_hash(new)
         return {v[field] for v in [*before.get(key, []), *after.get(key, [])]
-                if f'{folder}/{v[field]}.md' in paths}
-    rows = sorted(set(changed(before.get('entries', []), after.get('entries', []), 'id')) |
-                  set(changed(registries['before'], registries['after'], 'id')) |
-                  changed_pages('providers', 'entries', 'id'))
+                if (path := f'{folder}/{v[field]}.md') in paths and semantic_change(path)}
+    from .quality import vendor_scope
+    facts = vendor_scope(repo, base, sha)
+    rows = facts['rows']
     families = sorted(set(changed(before.get('models', []), after.get('models', []), 'family')) |
                       changed_pages('models', 'models', 'family'))
+    eligibility = facts['eligibility']
     required = {'pages build and deployment'}
     for filename in ('ci.yml', 'indexnow.yml', 'conformance.yml'):
         content = git.show(repo, sha, '.github/workflows/' + filename)
@@ -185,14 +190,21 @@ def prepare(repo: Path, base: str, head: str, bundle: Bundle, verification_run: 
                             '--json', 'databaseId,name,status,conclusion,headSha,url,attempt'))
         log = gh('run', 'view', str(verification_run), '--repo', REPO_URL.removeprefix('https://github.com/'),
                  '--attempt', str(run['attempt']), '--log')
-        workflow = yaml.safe_load(blob(repo, sha, '.github/workflows/update.yml'))
-        run = produced_run(repo, sha, run, log, workflow['name'])
+        for filename, subject in PRODUCER_WORKFLOWS.values():
+            body = git.show(repo, sha, '.github/workflows/' + filename)
+            workflow = yaml.safe_load(body) if body else None
+            if workflow and run['name'] == workflow['name']:
+                break
+        else:
+            raise ValueError('verification run must be a configured verification or expiry writer')
+        run = produced_run(repo, sha, run, log, workflow['name'], subject)
         run['log'] = bundle.write(f"workflows/{run['databaseId']}-{run['attempt']}.log", log.encode())
         bundle.save('verification-run', run)
         for path in ('ci.yml', 'indexnow.yml'):
             required.discard(yaml.safe_load(blob(repo, sha, '.github/workflows/' + path))['name'])
         required.add(workflow['name'])
     scope = {'base': base, 'sha': sha, 'paths': paths, 'deleted_paths': deleted_paths, 'rows': rows,
+             'eligibility': eligibility, 'withdrawals': facts['withdrawals'],
              'push_base': push_base, 'push_paths': push_paths,
              'families': families,
              'workflows': sorted(required), 'verification_run': verification_run, 'prepared_at': now()}
@@ -202,7 +214,8 @@ def prepare(repo: Path, base: str, head: str, bundle: Bundle, verification_run: 
 
 
 async def fetch(client: httpx.AsyncClient, url: str, bundle: Bundle, *,
-                expected: bytes | None = None, expected_status: int = 200, backoff: float = 2) -> dict:
+                expected: bytes | None = None, expected_status: int = 200, backoff: float = 2,
+                page: bool = False) -> dict:
     attempts = []
     prefix = 'http/' + digest(url.encode())[:20] + '-' + uuid.uuid4().hex[:8]
     async def send():
@@ -218,10 +231,22 @@ async def fetch(client: httpx.AsyncClient, url: str, bundle: Bundle, *,
                          'final_url': str(response.url)})
         return response
     response, error = await _ask(send, 3, backoff)
+    if page and expected is None and response is not None:
+        from .page_reader import recover_page
+        response = await recover_page(client, response)
+        for i, attempt in enumerate(response.extensions.get('page_read_attempts', [])[1:]):
+            record = {k: v for k, v in attempt.items() if k != 'body'}
+            if 'body' in attempt:
+                record['file'] = bundle.write(prefix + '-recovery-' + str(i) + '.raw', attempt['body'])
+            attempts.append(record)
     passed = response is not None and response.status_code == expected_status
+    if page and response is not None:
+        passed = passed and page_response_ok(response)
     if expected is not None:
         passed = passed and response.content == expected
     return {'url': url, 'passed': passed, 'attempts': attempts, 'error': error,
+            'file': next((a['file'] for a in reversed(attempts) if response is not None
+                          and a.get('sha256') == digest(response.content)), None),
             'expected_status': expected_status,
             'expected_sha256': digest(expected) if expected is not None else None}
 
@@ -239,7 +264,8 @@ async def sources(bundle: Bundle, extra: list[str]) -> dict:
     scope = scoped(bundle)
     entries = [Entry.model_validate(e) for e in yaml.safe_load(blob(bundle.repo, scope['sha'], 'registry.yaml'))['entries']
                if e['id'] in scope['rows']]
-    urls, by_row, followed = set(extra), {}, []
+    urls, by_row, followed, probe_urls = set(extra), {}, [], {}
+    catalogs_read = set().union(*(catalog_urls(e) for e in entries))
     async def capture(response):
         await response.aread()
         file = bundle.write('http/follow-' + uuid.uuid4().hex + '.raw', response.content)
@@ -251,6 +277,7 @@ async def sources(bundle: Bundle, extra: list[str]) -> dict:
         entries = [await resolved_quota_entry(client,e) for e in entries]
         for entry in entries:
             page = await probe_page_url(client, entry.probe) if entry.probe.follow else None
+            probe_urls[entry.id] = page or entry.probe.endpoint
             selected = row_urls(entry, page)
             if entry.probe.free_list:
                 selected.append(entry.probe.free_list)
@@ -262,13 +289,50 @@ async def sources(bundle: Bundle, extra: list[str]) -> dict:
         sem = asyncio.Semaphore(8)
         async def one(url):
             async with sem:
-                return await fetch(client, url, bundle)
+                return await fetch(client, url, bundle, page=url not in catalogs_read)
         checks = await asyncio.gather(*(one(u) for u in sorted(urls)))
-    raw_bodies = {r['url']: (bundle.out / r['attempts'][-1]['file']).read_text(errors='replace')
+    raw_bodies = {r['url']: (bundle.out / r['file']).read_text(errors='replace')
                   for r in checks if r['passed']}
     bodies = {url: page_texts(body) for url, body in raw_bodies.items()}
-    quotes, catalogs, quotas = [], [], []
+    quotes, catalogs, quotas, model_checks = [], [], [], []
     for entry in entries:
+        from .prober import check_content, join_free_list, stale_ids, unevidenced_families, model_table_findings
+        from .models import ProbeType
+        def response(url):
+            body = raw_bodies.get(url)
+            return (httpx.Response(200, text=body, request=httpx.Request('GET', url))
+                    if body is not None else None)
+        current = response(probe_urls[entry.id])
+        findings = []
+        if current is None:
+            findings.append('current probe source unreadable; eligibility not established')
+        else:
+            if entry.probe.free_list:
+                listed = response(entry.probe.free_list)
+                if listed is None:
+                    findings.append('current free list unreadable; eligibility not established')
+                    current = None
+                else:
+                    current, failure = join_free_list(current, listed, entry.probe.lane)
+                    if failure:
+                        findings.append(failure)
+            if current is not None:
+                if content := check_content(current, entry):
+                    findings.append(content)
+                if missing := unevidenced_families(current, entry):
+                    findings.append('listed families not evidenced: ' + ', '.join(missing))
+                findings.extend(model_table_findings(current, entry, datetime.now(timezone.utc).date()))
+                catalog = current if entry.probe.type is ProbeType.API_MODELS else response(entry.probe.catalog) if entry.probe.catalog else None
+                if entry.probe.catalog and catalog is None:
+                    findings.append('current model catalog unreadable')
+                if catalog is not None and (ids := stale_ids(catalog, entry)):
+                    findings.append(ids)
+        from .quotes import model_binding_changes, model_exclusion_changes
+        findings.extend(model_binding_changes(entry, raw_bodies))
+        findings.extend(model_exclusion_changes(entry, raw_bodies))
+        model_checks.append({'row': entry.id, 'source': probe_urls[entry.id], 'notes': findings,
+                             'passed': not findings,
+                             'scope': 'Current offer, family and catalog-ID checks; page names still require scoped free-plan judgment.'})
         pages = [p for u in by_row[entry.id] for p in bodies.get(u, [])]
         unread = any(u not in bodies for u in by_row[entry.id])
         for field, quote in row_quotes(entry):
@@ -288,19 +352,43 @@ async def sources(bundle: Bundle, extra: list[str]) -> dict:
             notes = quota_changes(body, quota) if body is not None else ['source unreadable']
             quotas.append({'row': entry.id, 'field': f'quotas[{i}]', 'source': quota.source,
                            'notes': notes, 'passed': not notes})
+    # CONTRIBUTING preserves a delisted row's last published offer. Keep its
+    # diverging historical checks visible without asserting current eligibility.
+    from .models import is_archived_for_good
+    historical_ids = {entry.id for entry in entries
+                      if is_archived_for_good(entry, datetime.now(timezone.utc).date())}
+    current_urls = set(extra) | {url for row, selected in by_row.items()
+                                if row not in historical_ids for url in selected}
+    historical_urls = {url for row, selected in by_row.items()
+                       if row in historical_ids for url in selected} - current_urls
+    historical_checks = {}
+    current = {}
+    for name, records in (('quotes', quotes), ('quotas', quotas),
+                          ('page_catalogs', catalogs), ('model_checks', model_checks)):
+        historical_checks[name] = [record for record in records if record['row'] in historical_ids]
+        current[name] = [record for record in records if record['row'] not in historical_ids]
+    quotes, quotas = current['quotes'], current['quotas']
+    catalogs, model_checks = current['page_catalogs'], current['model_checks']
+    historical_checks['sources'] = [record for record in checks if record['url'] in historical_urls]
     return bundle.save('sources', {'sha': scope['sha'], 'read_at': now(), 'by_row': by_row,
                                   'checks': checks, 'quotes': quotes, 'followed': followed,
                                   'page_catalogs': catalogs,
                                   'quotas': quotas,
-                                  'passed': all(r['passed'] for r in checks) and all(q['found'] for q in quotes)
+                                  'model_checks': model_checks,
+                                  'historical_rows': sorted(historical_ids),
+                                  'historical_checks': historical_checks,
+                                  'passed': all(r['passed'] for r in checks if r['url'] not in historical_urls)
+                                            and all(q['found'] for q in quotes)
                                             and all(c['passed'] for c in catalogs)
-                                            and all(q['passed'] for q in quotas),
-                                  'judgment': 'Source reads, quote matching and configured page catalogs; vendor eligibility still needs review.'})
+                                            and all(q['passed'] for q in quotas)
+                                            and all(m['passed'] for m in model_checks),
+                                  'judgment': 'Current source/quote/catalog checks; historical checks remain separate. Vendor eligibility and dated withdrawal evidence still need review.'})
 
 
-def produced_run(repo: Path, sha: str, run: dict, log: str, name: str) -> dict:
-    """A scheduled run's trigger SHA differs from the verification commit it creates."""
-    candidates = re.findall(r'\[main ([0-9a-f]{7,40})\] chore: verification', log)
+def produced_run(repo: Path, sha: str, run: dict, log: str, name: str,
+                 subject: str = 'verification') -> dict:
+    """A main writer's trigger SHA differs from the commit it creates."""
+    candidates = re.findall(r'\[main ([0-9a-f]{7,40})\] chore: '+re.escape(subject)+r'(?:\s|$)', log)
     matched = any(revision(repo, candidate) == sha for candidate in candidates)
     ancestor = git.run(repo, 'merge-base', '--is-ancestor', run['headSha'], sha).returncode == 0
     if run['name'] != name or run['status'] != 'completed' or run['conclusion'] != 'success' or not matched or not ancestor:
@@ -443,6 +531,51 @@ def client_result(client: str, code: int, events: list[dict], marker: str) -> di
             'completed_tools': len(tools), 'fresh_marker_in_answer': matched, 'error_event': error}
 
 
+def opencode_run_flags(help_text: str) -> list[str]:
+    """Select an isolated, noninteractive invocation from the supplied CLI help."""
+    if '--standalone' in help_text:
+        flags = ['--standalone']
+    elif '--pure' in help_text:
+        flags = ['--pure']
+    else:
+        raise ValueError('OpenCode advertises no supported isolated run mode')
+    if '--auto' in help_text:
+        flags.append('--auto')
+    return flags
+
+
+def opencode_session_result(bundle: Bundle, prefix: str, binary: str, project: Path,
+                            env: dict, events: list[dict], marker: str,
+                            provider: str, model: str) -> dict:
+    """Read the completed session without sending another provider request."""
+    from .conformance import check_opencode_session_export
+    sessions = {event.get('sessionID') for event in events}
+    answers = [event.get('part', {}) for event in events if event.get('type') == 'text']
+    if len(sessions) != 1 or not answers:
+        return {'passed': False, 'error': 'No unique session and final answer to export'}
+    session = next(iter(sessions))
+    answer = answers[-1].get('messageID')
+    if not isinstance(session, str) or not re.fullmatch(r'ses_[A-Za-z0-9_-]+', session):
+        return {'passed': False, 'error': 'No supported session ID to export'}
+    for name, args, seconds in (
+            ('export-help', [binary, 'session', 'export', '--help'], 15),
+            ('session-export', [binary, 'session', 'export', '--standalone', session], 30)):
+        try:
+            done = subprocess.run(args, cwd=project, env=env, stdin=subprocess.DEVNULL,
+                                  capture_output=True, timeout=seconds)
+        except subprocess.TimeoutExpired as exc:
+            done = subprocess.CompletedProcess(args, -1, exc.stdout or b'', exc.stderr or b'')
+        bundle.write(prefix + name + ('.json' if name == 'session-export' else '.stdout'), done.stdout)
+        bundle.write(prefix + name + '.stderr', done.stderr)
+        if done.returncode or (name == 'export-help' and '--standalone' not in done.stdout.decode(errors='replace')):
+            return {'passed': False, 'error': name + ' unavailable', 'exit': done.returncode}
+    try:
+        exported = json.loads(done.stdout)
+    except (ValueError, UnicodeDecodeError):
+        return {'passed': False, 'error': 'Session export is not readable JSON'}
+    return check_opencode_session_export(exported, session, provider, model, project, marker, answer)
+
+
 def live_client(bundle: Bundle, client: str, binary: str, provider: str, model: str) -> dict:
     scope = scoped(bundle)
     rows = yaml.safe_load(blob(bundle.repo, scope['sha'], 'registry.yaml'))['entries']
@@ -459,22 +592,54 @@ def live_client(bundle: Bundle, client: str, binary: str, provider: str, model: 
     (project / 'audit-marker.txt').write_text(marker + '\n')
     env = {'PATH': os.environ['PATH'], 'HOME': str(home), 'LANG': 'C.UTF-8'}
     prompt = 'Read audit-marker.txt using a tool or shell command, then reply with exactly its contents. Do not edit files or inspect any other paths.'
+    prefix = 'client/' + work.name + '/'
+    launch_error = None
+    argv = []
     if client == 'opencode':
         config = work / 'opencode.json'; config.write_bytes(blob(bundle.repo, scope['sha'], 'configs/opencode.json'))
         env.update(OPENCODE_CONFIG=str(config), XDG_CONFIG_HOME=str(home / 'config'),
                    XDG_DATA_HOME=str(home / 'data'), XDG_CACHE_HOME=str(home / 'cache'))
-        argv = [binary, 'run', '--pure', '--format', 'json', '-m', provider + '/' + model, prompt]
+        try:
+            help_result = subprocess.run([binary, 'run', '--help'], cwd=project, env=env,
+                                         stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
+        except subprocess.TimeoutExpired as exc:
+            help_result = subprocess.CompletedProcess([binary, 'run', '--help'], 1,
+                                                      exc.stdout or b'', (exc.stderr or b'') + b'\nCLI help timeout')
+        bundle.write(prefix + 'run-help.stdout', help_result.stdout)
+        bundle.write(prefix + 'run-help.stderr', help_result.stderr)
+        if help_result.returncode:
+            launch_error = 'OpenCode run --help failed; no provider request sent'
+        else:
+            try:
+                # OpenCode 1.19.0 emits successful help on stderr (measured 2026-10-15).
+                flags = opencode_run_flags((help_result.stdout + help_result.stderr).decode(errors='replace'))
+                argv = [binary, 'run', *flags, '--format', 'json', '-m', provider + '/' + model, prompt]
+            except ValueError as exc:
+                launch_error = str(exc)
     else:
         config = home / '.codex'; config.mkdir()
         (config / (provider + '.config.toml')).write_bytes(blob(bundle.repo, scope['sha'], 'configs/codex/' + provider + '.config.toml'))
         env['CODEX_HOME'] = str(config)
         argv = [binary, 'exec', '--json', '-p', provider, '-m', model, '--sandbox', 'read-only', '--skip-git-repo-check', prompt]
-    try:
-        done = subprocess.run(argv, cwd=project, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
-        code, stdout, stderr = done.returncode, done.stdout, done.stderr
-    except subprocess.TimeoutExpired as exc:
-        code, stdout, stderr = -1, exc.stdout or b'', (exc.stderr or b'') + b'\n120-second timeout'
-    prefix = 'client/' + work.name + '/'
+    if launch_error:
+        code, stdout, stderr = 1, b'', launch_error.encode()
+        budget_trace = None
+    else:
+        budget_trace = None
+        with ExitStack() as stack:
+            if client == 'opencode' and (tokens := entry.api.opencode_output_tokens.get(model)):
+                from .conformance import record_opencode_output_budget
+                local, budget_trace = stack.enter_context(
+                    record_opencode_output_budget(entry.api.base_url, model, tokens))
+                config_body = json.loads(config.read_text())
+                bundle.write(prefix + 'committed-opencode.json', config.read_bytes())
+                config_body['provider'][provider]['options']['baseURL'] = local
+                config.write_text(json.dumps(config_body, indent=2) + '\n')
+            try:
+                done = subprocess.run(argv, cwd=project, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+                code, stdout, stderr = done.returncode, done.stdout, done.stderr
+            except subprocess.TimeoutExpired as exc:
+                code, stdout, stderr = -1, exc.stdout or b'', (exc.stderr or b'') + b'\n120-second timeout'
     bundle.write(prefix + 'stdout.jsonl', stdout)
     bundle.write(prefix + 'stderr.log', stderr)
     events = []
@@ -484,13 +649,25 @@ def live_client(bundle: Bundle, client: str, binary: str, provider: str, model: 
         except ValueError:
             continue
     result = client_result(client, code, events, marker)
+    result.update(stdout_completed_turn=result['completed_turn'], completion_source='stdout')
+    if (client == 'opencode' and code == 0 and not result['completed_turn'] and not result['error_event']
+            and result['fresh_marker_in_tool_output'] and result['fresh_marker_in_answer']):
+        exported = opencode_session_result(bundle, prefix, binary, project, env, events, marker, provider, model)
+        result['session_export'] = exported
+        if exported.get('passed'):
+            result.update(passed=True, completed_turn=True, completion_source='session-export')
+    if budget_trace is not None:
+        bundle.save(prefix + 'output-budget', budget_trace)
+        result['output_budget'] = budget_trace
+        result['passed'] = result['passed'] and budget_trace['passed']
     phase = 'client-' + work.name
     return bundle.save(phase, {**result, 'sha': scope['sha'], 'provider': provider, 'phase': phase,
+                                          'command': argv, 'launch_error': launch_error,
                                           'model': model, 'at': now(), 'evidence': prefix})
 
 
 def report(bundle: Bundle) -> dict:
-    required = ('scope', 'sources', 'workflows', 'publication', 'browser')
+    required = ('scope', 'sources', 'workflows', 'publication', 'browser', 'judgment')
     names = [*required, *(p.stem for p in bundle.out.glob('client-*.json'))]
     phases = {name: bundle.load(name) for name in names if (bundle.out / (name + '.json')).exists()}
     missing = [p for p in required if p not in phases]
@@ -498,6 +675,12 @@ def report(bundle: Bundle) -> dict:
     failed = [p for p, value in phases.items() if (p != 'scope' and value.get('passed') is not True) or
               (value.get('sha') != sha) or (p == 'scope' and value.get('passed') is False)]
     problems = integrity(bundle)
+    if 'judgment' in phases:
+        from .quality import check_judgment
+        try:
+            check_judgment(bundle, phases.get('scope', {}))
+        except (ValueError, KeyError, TypeError) as exc:
+            problems.append('independent review: ' + str(exc))
     browser = bundle.load('browser-execution', {})
     images = {(r['image_url'], r['image_path']) for r in browser.get('records', []) if r.get('image_url')}
     verified = {(r['url'], r['path']) for r in phases.get('publication', {}).get('checks', [])
@@ -519,11 +702,13 @@ def main() -> None:
     prepare_parser = sub.add_parser('prepare'); prepare_parser.add_argument('--base', required=True)
     prepare_parser.add_argument('--head', default='HEAD')
     prepare_parser.add_argument(PUSH_BASE_FLAG, help='commit immediately before the final human push; defaults to --base')
-    prepare_parser.add_argument('--verification-run', type=int, help='successful update run that produced this bot commit')
+    prepare_parser.add_argument('--verification-run', type=int, help='successful verification or expiry run that produced this bot commit')
     source_parser = sub.add_parser('sources'); source_parser.add_argument('--url', action='append', default=[])
     publish_parser = sub.add_parser('publication'); publish_parser.add_argument('--every', type=float, default=15)
     publish_parser.add_argument('--timeout', type=float, default=900)
     browser_parser = sub.add_parser('browser'); browser_parser.add_argument('--result', type=Path)
+    judgment_parser = sub.add_parser('judgment', help='record an independent review of this exact diff')
+    judgment_parser.add_argument('--result', type=Path, required=True)
     client_parser = sub.add_parser('client'); client_parser.add_argument('--client', choices=('opencode', 'codex'), required=True)
     client_parser.add_argument('--binary', required=True); client_parser.add_argument('--provider', required=True)
     client_parser.add_argument('--model', required=True)
@@ -558,6 +743,9 @@ def main() -> None:
             else:
                 result = {'sha': scope['sha'], 'script': bundle.write('browser.js', browser_script(bundle).encode())}
                 bundle.save('browser-script', result)
+        elif args.phase == 'judgment':
+            from .quality import accept_judgment
+            result = accept_judgment(bundle, json.loads(args.result.read_text()))
         else:
             result = report(bundle)
         artifact = {'prepare': 'scope', 'browser': 'browser' if getattr(args, 'result', None) else 'browser-script'}.get(args.phase, args.phase)

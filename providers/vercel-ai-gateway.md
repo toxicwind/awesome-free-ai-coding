@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Vercel AI Gateway free tier: limits, free models, verified 2026-10-08'
-description: 'One OpenAI-compatible endpoint for 360+ models, with $5 of gateway credits every month once the team has a payment method on file, and language models priced at zero that never touch the credit. Free models: laguna-s-2.1. A team must add a valid payment method before using free credit; otherwise…'
+title: 'Vercel AI Gateway free tier: limits, free models, verified 2026-10-26'
+description: 'OpenAI-compatible model gateway with $5 of monthly credit after adding a payment method, plus separate zero-priced model routes. Free models: laguna-s-2.1, nemotron-3.5-lightning. A team must add a valid payment method before using free credit; otherwise requests return `403…'
 permalink: /providers/vercel-ai-gateway/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: Vercel AI Gateway
 ---
 
@@ -11,23 +11,25 @@ crumb: Vercel AI Gateway
 
 # Vercel AI Gateway free tier
 
-🧭 Aggregators (one key, many providers) · card required · **live** — last verified by a probe on 2026-10-08 · [vercel.com](https://vercel.com/ai-gateway) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🧭 Aggregators (one key, many providers) · card required · **live** — last verified by a probe on 2026-10-26 · [vercel.com](https://vercel.com/ai-gateway) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-One OpenAI-compatible endpoint for 360+ models, with $5 of gateway credits every month once the team has a payment method on file, and language models priced at zero that never touch the credit
+OpenAI-compatible model gateway with $5 of monthly credit after adding a payment method, plus separate zero-priced model routes
 
 ## Free models
 
-[`laguna-s-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-s-2.1/)
+[`laguna-s-2.1`](https://mvalentsev.github.io/awesome-free-ai-coding/models/laguna-s-2.1/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/)
 
 ## Limits, in the vendor's words
 
 Gateway credit: $5/month per team
 
-Zero-priced model routes: Usage allowance: amount not published (period not published) per team
+Free credit rate limits: Requests allowance: amount not published (period not published); scope not published (Limits apply per model.)
 
-A team must add a valid payment method before using free credit; otherwise requests return `403 customer_verification_required`. Credit spends at provider list rates, has lower per-model rate limits and excludes BYOK. Buying credit ends the monthly free credit. Zero-priced model routes remain a separate free mode and do not spend that balance. Use their exact free IDs: a similarly named route without its free suffix can be metered.
+Beam launch offer: Usage allowance: amount not published (period not published); scope not published (The free route stops at the end of the launch offer; the end date and numerical allowance are unpublished.); for `reflection/beam-free`
+
+A team must add a valid payment method before using free credit; otherwise requests return `403 customer_verification_required`. Credit spends at provider list rates and excludes BYOK. Buying credit ends the monthly free credit. Zero-priced model routes remain a separate free mode and do not spend that balance. Use their exact free IDs: a similarly named route without its free suffix can be metered.
 
 ## Where it is offered
 
@@ -43,8 +45,8 @@ What you send may be used to train or improve models unless you turn that off. I
 - Key: `VERCEL_AI_GATEWAY_API_KEY` — get one at <https://vercel.com/dashboard/ai-gateway/api-keys>
 - Anthropic-format base (Claude Code's `ANTHROPIC_BASE_URL`): `https://ai-gateway.vercel.sh`
 - Codex CLI: [`configs/codex/vercel-ai-gateway.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/vercel-ai-gateway.config.toml) — copy it to `~/.codex/`, then `codex -p vercel-ai-gateway`; Codex's base is `https://ai-gateway.vercel.sh/codex/v1`; set up on the lane by the vendor's own page, <https://vercel.com/docs/ai-gateway/coding-agents/openai-codex>: "Point Codex at its own compatibility endpoint"
-- Callable ids: `poolside/laguna-s-2.1-free`, `inclusionai/ling-3.1-flash`, `inclusionai/ling-3.1-flash-free`, `stealth/glyph-cluster`
-- Note: The listed IDs are priced zero in and out and do not spend the $5 credit; other Free-Tier-eligible models spend it. For Claude Code, use https://ai-gateway.vercel.sh as ANTHROPIC_BASE_URL and leave ANTHROPIC_API_KEY empty.
+- Callable ids: `poolside/laguna-s-2.1-free`, `stealth/glyph-cluster`, `nvidia/nemotron-3.5-lightning-free`, `reflection/beam-free`
+- Note: Use the IDs listed here; a zero catalog price can depend on the provider and change after a promotion. For Beam, use reflection/beam-free: it stops when free access ends. The regular reflection/beam route can charge at provider rates. Reflection's terms and privacy policy apply. For Claude Code, set ANTHROPIC_BASE_URL=https://ai-gateway.vercel.sh and leave ANTHROPIC_API_KEY empty.
 
 Try it from your terminal with your key in `VERCEL_AI_GATEWAY_API_KEY` — it goes from your machine to the vendor and nowhere else:
 
@@ -59,14 +61,24 @@ curl -s https://ai-gateway.vercel.sh/v1/chat/completions \
 
 - Probe: the models catalog at <https://ai-gateway.vercel.sh/v1/models>, each listed family checked for a zero price
 - Source: <https://vercel.com/docs/ai-gateway/pricing>
+- Source: <https://vercel.com/docs/ai-gateway/rate-limits>
 - Source: <https://vercel.com/docs/ai-gateway/faq>
 - Source: <https://vercel.com/docs/ai-gateway/openai-compat>
 - Source: <https://vercel.com/docs/ai-gateway/sdks-and-apis/anthropic-messages-api>
+- Source: <https://vercel.com/changelog/reflection-ai-beam-now-available-on-ai-gateway-for-free>
+- Source: <https://vercel.com/ai-gateway/models/beam-free>
+- Source: <https://vercel.com/ai-gateway/models/beam>
+- Source: <https://reflection.ai/legal/terms-of-service>
+- Source: <https://reflection.ai/legal/privacy-policy>
+- Source: <https://vercel.com/changelog/minimax-m3-1-flash-now-available-on-ai-gateway-for-free>
 
 ## History
 
 Each line is a change to what this page publishes, dated the day it reached the list, in UTC.
 
+- `2026-10-29` — Free models changed: added nemotron-3.5-lightning
+- `2026-10-15` — Free models changed: dropped ling-3.1-flash
+- `2026-10-13` — Free models changed: added ling-3.1-flash
 - `2026-10-05` — Free models changed: dropped ling-3.0-flash-sante
 - `2026-09-26` — Free models changed: dropped ling-3.0-flash-fin
 - `2026-09-19` — Free models changed: added ling-3.0-flash-sante
@@ -79,6 +91,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

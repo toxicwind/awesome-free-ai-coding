@@ -5,7 +5,7 @@ import re
 from html.parser import HTMLParser
 from datetime import date
 from typing import TYPE_CHECKING, Literal
-from urllib.parse import urlparse
+from .source_urls import valid_source_url
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -118,11 +118,11 @@ class _Tables(HTMLParser):
             self.current, self.row, self.cell, self.button = None, None, None, None
 
 
-def _table_changes(body: str, quota: UsageQuota) -> list[str]:
+def table_values(body: str, binding: QuotaTable) -> list[tuple[str, str]]:
+    """Resolve exact model/plan cells; missing or duplicate cells stay visible."""
     parser = _Tables()
     try:parser.feed(body)
-    except (ValueError,TypeError):return ['quota table markup is unreadable']
-    binding = quota.table
+    except (ValueError,TypeError):return []
     header, tabs, matches = [], [], []
     tables = parser.tables
     if not tables:
@@ -150,6 +150,12 @@ def _table_changes(body: str, quota: UsageQuota) -> list[str]:
                 continue
             if len(row) > binding.row_column and row[binding.row_column] in binding.rows:
                 matches.append((row[binding.row_column], row[column] if column < len(row) else ''))
+    return matches
+
+
+def _table_changes(body: str, quota: UsageQuota) -> list[str]:
+    binding = quota.table
+    matches = table_values(body, binding)
     notes = []
     for row in binding.rows:
         values = [value for name, value in matches if name == row]
@@ -160,9 +166,16 @@ def _table_changes(body: str, quota: UsageQuota) -> list[str]:
 
 
 def _numbers(text: str) -> set[float]:
+    # LLMTR uses Turkish "500.000" and "500 bin" for its daily token cap:
+    # https://llmtr.com/blog/shanghai-ai-lab-modelleri-intern-s2-atria-dawn-agents-a1-sage
+    # checked 2026-10-23. Require Turkish context for ambiguous dot grouping;
+    # keep English decimals and fractional prices such as 0.001 unchanged.
+    if re.search(r'\b(?:günde|günlük|kişi|hesap|bin|milyon)\b', text, re.I):
+        text = re.sub(r'(?<![a-zA-Z0-9_.])([1-9]\d{0,2}(?:\.\d{3})+)(?!\d|\.\d)',
+                      lambda m: m[1].replace('.', ''), text)
     values = set()
-    for m in re.finditer(r'(?<![a-zA-Z0-9_.])([0-9][0-9,]*(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\s*(million|thousand|[mk]\b|万)?', text, re.I):
-        scale = {'million':1e6,'m':1e6,'thousand':1e3,'k':1e3,'万':1e4}.get((m[2] or '').lower(),1)
+    for m in re.finditer(r'(?<![a-zA-Z0-9_.])([0-9][0-9,]*(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\s*(million|milyon|thousand|bin\b|[mk]\b|万)?', text, re.I):
+        scale = {'million':1e6,'milyon':1e6,'m':1e6,'thousand':1e3,'bin':1e3,'k':1e3,'万':1e4}.get((m[2] or '').lower(),1)
         values.add(float(m[1].replace(',',''))*scale)
     words = {'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,
              'nine':9,'ten':10,'eleven':11,'twelve':12,'fifteen':15,'twenty':20}
@@ -180,7 +193,7 @@ class UsageQuota(BaseModel):
     period: Literal['second','minute','hour','day','week','month','one-time','concurrent'] | None = None
     window: int = Field(default=1, gt=0, exclude_if=lambda v: v == 1)
     rolling: bool = Field(default=False, exclude_if=lambda v: not v)
-    scope: Literal['account','ip','account-model','project','key','unspecified','ip-model',
+    scope: Literal['account','person','ip','account-model','project','key','unspecified','ip-model',
                    'organization','organization-model','project-model','key-model','plan','team','endpoint','disputed']
     state: Literal['variable','unmetered','account-specific','disputed'] | None = None
     label: str = Field(default='', max_length=120, exclude_if=lambda v: not v)
@@ -209,8 +222,7 @@ class UsageQuota(BaseModel):
     @field_validator('source')
     @classmethod
     def _http_source(cls, value):
-        p = urlparse(value)
-        if p.scheme not in ('http','https') or not p.hostname or p.username or p.password:
+        if not valid_source_url(value, schemes=('http','https')):
             raise ValueError('quota.source needs a public HTTP source without credentials')
         return value
 
@@ -257,7 +269,7 @@ class UsageQuota(BaseModel):
                      'list-price value':r'\b(?:list.price|value.based)\b'}.get(self.unit, r'\b' + self.unit + r'\b')
             periods = {'second':r'\b(?:seconds?|secs?|rps)\b',
                        'minute':r'\b(?:minutes?|min|rpm|tpm)\b', 'hour':r'\b(?:hours?|rph)\b|小时',
-                       'day':r'\b(?:days?|daily|rpd)\b|每天|每日|24小时', 'week':r'\b(?:weeks?|weekly)\b|周',
+                       'day':r'\b(?:days?|daily|rpd|günde|günlük)\b|每天|每日|24小时', 'week':r'\b(?:weeks?|weekly)\b|周',
                        'month':r'\b(?:months?|monthly|mo)\b|每月|月',
                        'one-time':r'\b(?:one.time|sign.?up|welcome|initial|new accounts?|new users?|registration|trials?|preview|once|first time)\b|注册|首次|试用|仅可领取一次',
                        'concurrent':r'\b(?:concurrent|simultaneous|simultaneously|in flight|at a time)\b|并发',
@@ -387,7 +399,7 @@ async def resolved_quota_entry(client, entry: Entry, attempts: int = 3, backoff:
             continue
         if q.follow:
             if q.source not in indices:
-                response,_ = await _fetch_page(client,q.source,attempts,backoff)
+                response,_ = await _fetch_page(client,q.source,attempts,backoff,page=False)
                 try:indices[q.source] = response.json() if response is not None else None
                 except ValueError:indices[q.source] = None
             url = followed_url(indices[q.source],Follow.model_validate(q.follow))
@@ -407,7 +419,7 @@ async def quota_moved(client, entry: Entry, probed, attempts: int, backoff: floa
         q = active_quota(entry,q)
         if q is None:continue
         if q.source not in pages:
-            pages[q.source] = await _page_beside(client, q.source, entry, probed, attempts, backoff)
+            pages[q.source] = await _page_beside(client, q.source, entry, probed, attempts, backoff, page=q.read != "catalog")
         page, failure = pages[q.source]
         if page is None:
             notes.append(f'quotas[{i}] could not be checked against {q.source}: {failure}')
@@ -418,13 +430,18 @@ async def quota_moved(client, entry: Entry, probed, attempts: int, backoff: floa
     return notes
 
 
-SCOPE_WORDS = {'account':'per account','ip':'per IP','account-model':'per account per model',
+SCOPE_WORDS = {'account':'per account','person':'per person','ip':'per IP','account-model':'per account per model',
                'project':'per project','key':'per key','unspecified':'scope not published',
                'ip-model':'per IP per model','organization':'per organization',
                'organization-model':'per organization per model','project-model':'per project per model','key-model':'per key per model',
                'plan':'per service plan','team':'per team','endpoint':'shared across the endpoint','disputed':'sharing scope disputed'}
 PERIOD_ADJECTIVES = {'second':'Per-second','minute':'Per-minute','hour':'Hourly','day':'Daily','week':'Weekly',
                      'month':'Monthly','one-time':'One-time','concurrent':'Concurrent',None:''}
+_SINGULAR_UNITS = {'requests':'request', 'tokens':'token', 'neurons':'neuron', 'credits':'credit',
+                   'tasks':'task', 'one-hour sessions':'one-hour session', 'messages':'message',
+                   'completions':'completion', 'edit predictions':'edit prediction', 'points':'point',
+                   'input tokens':'input token', 'output tokens':'output token',
+                   'Hypercredits':'Hypercredit', 'weighted units':'weighted unit', 'interactions':'interaction'}
 
 
 def quota_value(q: UsageQuota) -> str:
@@ -435,13 +452,15 @@ def quota_value(q: UsageQuota) -> str:
         periods = 'rolling ' + periods
     if q.amount is None:
         window = ('Rolling ' if q.rolling else '') + (f'{q.window}-{q.period}' if q.window != 1 else PERIOD_ADJECTIVES[q.period])
-        status = {'variable':'amount varies','account-specific':'see your account for values'}.get(q.state,'amount not published')
+        status = {'variable':'amount varies','account-specific':'see your account for values',
+                  'disputed':'published sources disagree'}.get(q.state,'amount not published')
         text = (window + ' ' + q.unit + ' allowance: ' + status).strip()
         if q.period is None:
             text += ' (period not published)'
         return text[0].upper() + text[1:] if q.period is None else text
     amount = f'{q.amount:,.15g}'
-    value = {'USD':'$','INR':'₹'}.get(q.unit,'') + amount if q.unit in ('USD','INR') else amount + ' ' + q.unit
+    unit = _SINGULAR_UNITS.get(q.unit, q.unit) if q.amount == 1 else q.unit
+    value = {'USD':'$','INR':'₹'}.get(q.unit,'') + amount if q.unit in ('USD','INR') else amount + ' ' + unit
     if q.period == 'concurrent':
         value += ' at once'
     elif q.period == 'one-time':
@@ -517,10 +536,10 @@ def quota_summary(entry: Entry) -> str:
         text = (label + ': ' if label else '') + '; '.join(words) + ('; ' if scope == 'unspecified' else ' ') + scoped
         if condition:
             text += ' (' + condition + ')'
-        if reset:
-            text += '. ' + reset
         ids = list(dict.fromkeys(mid for q in quotas for mid in q.model_ids))
         if ids:
             text += '; for ' + ', '.join('`' + mid + '`' for mid in ids)
+        if reset:
+            text += '. ' + reset
         paragraphs.append(text)
     return '\n\n'.join(paragraphs)

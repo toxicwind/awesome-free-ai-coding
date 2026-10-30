@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'agnes-2.5-flash free: 2 providers, limits and ids, verified 2026-10-08'
-description: agnes-2.5-flash is served free by LLMTR and Agnes AI. None asks for a card. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'agnes-2.5-flash free: 2 providers, limits and ids, provider probes 2026-10-26'
+description: agnes-2.5-flash is served free by LLMTR and Agnes AI. None asks for a card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/agnes-2.5-flash/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: agnes-2.5-flash
 ---
 
@@ -11,7 +11,7 @@ crumb: agnes-2.5-flash
 
 # Where agnes-2.5-flash is free
 
-**2 rows on the list serve `agnes-2.5-flash` free:** LLMTR and Agnes AI. None asks for a card. The published offers were checked on 2026-10-08 and are rechecked twice a week.
+**2 rows on the list serve `agnes-2.5-flash` free:** LLMTR and Agnes AI. None asks for a card. The providers' last scheduled probes were on 2026-10-26; their offers are rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,40 +19,48 @@ crumb: agnes-2.5-flash
 
 ### [LLMTR](https://mvalentsev.github.io/awesome-free-ai-coding/providers/llmtr/)
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-09-28
+🧭 Aggregators (one key, many providers) · no card · last probe 2026-10-26 · listed since 2026-09-28
 
 Turkish OpenAI-compatible gateway with free models on a zero balance and dated previews; some previews require a previous top-up
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
 
-- Limits, in the vendor's words: Nemotron Ultra/Super and Qwen3.8 27B: Daily usage allowance: amount not published; scope not published; for `nvidia/nemotron-3-ultra-550b-a55b`, `nvidia/nemotron-3-super-120b-a12b`, `qwen/qwen3.8-27b-free`
+- Limits, in the vendor's words: Nemotron Ultra and Qwen3.8 27B: Daily usage allowance: amount not published; scope not published; for `nvidia/nemotron-3-ultra-550b-a55b`, `qwen/qwen3.8-27b-free`
 
-Apodex 1.1 Mini: Daily usage allowance: amount not published per account per model; for `apodex/apodex-1.1-mini-free`
+Heabsy Qwen3.8 27B: Daily usage allowance: amount not published per account; for `heabsy/qwen3.8-27b-heabsy-free`
 
-Free chat rows can be called on a new account with zero balance before any top-up. Laguna XS 2.1 follows Poolside's free inference offer, without a token allowance to track. Paid use is prepaid; an 8% margin applies once at top-up, not to model prices. Prompt and response bodies are not permanently written to the usage and billing database. Apodex Mini can close before its recorded deadline if the promotion pool runs out.
+Nemotron3.5 Super VL: Daily usage allowance: amount not published; scope not published; for `nvidia/nemotron-3.5-super-vl-free`
+
+Jais 3 MoVA: 200,000 tokens/day per account per model (Input and output count together; lower first-day allowance for new accounts); for `ifm/jais-3-mova-36b-a4b`. 00:00'da (TSİ)
+
+K2 Horizon: 200,000 tokens/day per account per model (Input, output and reasoning count together; lower first-day allowance for new accounts); for `ifm/k2-horizon-375b-a23b`. 00:00'da (TSİ)
+
+MiniMax M3.1 Flash: 5,000,000 tokens/day per account per model; for `minimax/minimax-m3.1-flash-free`. 00:00’da (TSİ)
+
+Shanghai AI Lab models: 500,000 tokens/day sharing scope disputed (Per model; model pages say per person, the guide says per account. Input, output and reasoning count; new accounts have a lower first-day allowance.); for `internlm/intern-s2-free`, `internlm/atria-dawn-free`, `internlm/atria-dawn-preview-free`, `internlm/agents-a1-free`, `internlm/sage-a1.5-free`. 00:00'da (TSİ)
+
+Free chat rows can be called on a new account with zero balance before any top-up. Paid use is prepaid; an 8% margin applies once at top-up, not to model prices. Prompt and response bodies are not permanently written to the usage and billing database. Heabsy requires provider-specific data-transfer consent: "Heabsy models cannot be called until your account has granted the data-transfer consent for Heabsy". Its stream is buffered until completion, and reasoning_effort is unsupported. For free Nemotron3.5 Super VL, inputs "may be retained by the provider and used to improve the model". Shanghai AI Lab prompts and completions may be logged by the provider and used to improve models.
 
 </details>
 
 - Base URL: `https://llmtr.com/v1`
 - Key: `LLMTR_API_KEY` — get one at <https://llmtr.com/dashboard/api-keys>
 - Callable ids: `agnes/agnes-2.5-flash`
-- What you send may be used to train or improve models ([the vendor's words](https://llmtr.com/docs/en/gateway/poolside-laguna/)).
+- What you send may be used to train or improve models ([the vendor's words](https://llmtr.com/docs/en/gateway/nemotron-3-5-super-vl/)).
 
 ### [Agnes AI](https://mvalentsev.github.io/awesome-free-ai-coding/providers/agnes-ai/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-14
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-14
 
 Agnes AI's own models behind an OpenAI-compatible API, with its Flash text models charged at zero today and image generation free beside them
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
 
-- Limits, in the vendor's words: Published allowed rate: 30 requests/minute per account
+- Limits, in the vendor's words: Allowed and effective text rates for default users: Per-minute requests allowance: see your account for values per account
 
-Effective rate: 10 requests/minute per account
-
-The Flash models' input, cached input and output are currently zero-priced; Pro remains metered. Zero pricing is promotional: "Promotional end dates are subject to Agnes AI platform announcements and your account bill". Allowed and effective text RPM are separate ceilings for the default user class; the account's keys share them. Image rates are separate. No daily budget is published.
+The Flash models' input, cached input and output are currently zero-priced; Pro remains metered. Zero pricing is promotional: "Promotional end dates are subject to Agnes AI platform announcements and your account bill". Allowed and effective text RPM for the default user class are dynamic; check the console for current limits. Keys of the same type share a pool; enterprise and Token Plan keys use separate pools. Image rates are separate. No daily budget is published.
 
 </details>
 
@@ -67,6 +75,6 @@ The Flash models' input, cached input and output are currently zero-priced; Pro 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

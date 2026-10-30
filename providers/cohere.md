@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Cohere (trial keys) free tier: limits, free models, verified 2026-10-08'
+title: 'Cohere (trial keys) free tier: limits, free models, verified 2026-10-26'
 description: 'Cohere''s Command models via free trial API keys that never expire, plus a 30B/3B Apache-2.0 coding model Cohere prices at zero on every key type. Free models: command-a-plus, command-a-reasoning, north-mini-code, command-a, command-a-vision, command-r-plus, command-r, command-r7b. Trial keys are…'
 permalink: /providers/cohere/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-28
 crumb: Cohere (trial keys)
 ---
 
@@ -11,7 +11,7 @@ crumb: Cohere (trial keys)
 
 # Cohere (trial keys) free tier
 
-🔌 LLM APIs with free tier · no card · not offered in mainland China, Russia, Hong Kong and 5 more places · **live** — last verified by a probe on 2026-10-08 · [cohere.com](https://cohere.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · not offered in mainland China, Russia, Hong Kong and 5 more places · **live** — last verified by a probe on 2026-10-26 · [cohere.com](https://cohere.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -44,7 +44,7 @@ What you send may be used to train or improve models. In the vendor's words: “
 - Base URL: `https://api.cohere.com/compatibility/v1`
 - Key: `COHERE_API_KEY` — get one at <https://dashboard.cohere.com/api-keys>
 - Callable ids: `north-mini-code-1-0`, `command-a-plus-05-2026`, `command-a-reasoning-08-2025`, `command-a-03-2025`, `command-a-vision-07-2025`, `command-r-plus-08-2024`, `command-r-08-2024`, `command-r7b-12-2024`
-- Note: OpenAI-compatible endpoint; native API lives at https://api.cohere.com/v2. Both ids are the Model ID Cohere's own model pages publish — north-mini-code-1-0 is the free-on-any-key one
+- Note: Use the OpenAI-compatible endpoint; the native API is https://api.cohere.com/v2. The exact IDs come from the vendor's model pages. north-mini-code-1-0 is free on both Trial and production keys; the other listed models use the Trial allowance.
 
 Try it from your terminal with your key in `COHERE_API_KEY` — it goes from your machine to the vendor and nowhere else:
 
@@ -73,6 +73,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

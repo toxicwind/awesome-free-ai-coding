@@ -20,6 +20,8 @@ from freetier_radar.render import (
 from test_render import TODAY, make
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+SEARCH_ASSETS = "\n".join((TEMPLATES.parent / "assets" / name).read_text()
+                           for name in ("model-name.js", "search.js"))
 
 
 def _render(entries, tmp_path, today=TODAY) -> str:
@@ -35,6 +37,86 @@ def test_every_category_has_a_nav_label():
     assert set(SITE_NAV_LABELS) == set(Category)
 
 
+def test_client_choices_match_existing_generated_routes_and_preserve_payment_scope():
+    from freetier_radar.render import _site_client_configs
+
+    direct = make(id="direct", api={
+        "base_url": "https://x.ai/v1", "model_ids": ["metered", "unfunded"],
+        "anthropic_base_url": "https://x.ai",
+        "model_access": {"metered": {"source": "https://x.ai/free", "initial_payment_usd": 5}},
+        "codex": {"base_url": "https://x.ai/v1", "source": "https://x.ai/codex",
+                  "quote": "Use Codex CLI with this provider"},
+    })
+    chat = make(id="chat", api={"base_url": "https://chat.ai/v1", "model_ids": ["small"]})
+    choices = _site_client_configs([direct, chat], TODAY)
+    codex = {r["id"]: r for r in choices["codex"]}
+    assert codex["direct"]["files"] == ["configs/codex/direct.config.toml"]
+    assert codex["direct"]["command"] == "codex -p direct"
+    assert codex["direct"]["model"] == "unfunded" and not codex["direct"]["access"]
+    assert codex["chat"]["route"] == "Via LiteLLM"
+    assert codex["chat"]["model"] == "chat/small"
+    assert codex["chat"]["command"] == "codex -p litellm -m chat/small"
+    assert [r["id"] for r in choices["claude"]] == ["direct"]
+    funded = direct.model_copy(deep=True)
+    funded.api.model_ids = ["metered"]
+    funded_choices = _site_client_configs([funded], TODAY)
+    assert "$5" in funded_choices["codex"][0]["access"]
+
+
+def test_client_choices_exclude_archived_missing_models_and_static_blockers():
+    from freetier_radar.render import _site_client_configs
+
+    api = {"base_url": "https://x.ai/v1", "model_ids": ["small"]}
+    archived = make(id="archived", api=api, delisted={"on": TODAY, "reason": "Ended"})
+    dynamic = make(id="dynamic", api={**api, "session_header": "x-session"})
+    missing = make(id="missing", api={"base_url": "https://x.ai/v1", "no_ids": "Keyed catalog"})
+    assert _site_client_configs([archived, dynamic, missing], TODAY) == {
+        name: [] for name in ("opencode", "codex", "claude", "litellm")}
+
+
+def test_client_choices_respect_bearer_refusal_and_the_expiry_writer():
+    from datetime import datetime, timezone
+    from freetier_radar.models import expire_entries
+    from freetier_radar.render import _site_client_configs
+
+    bare = make(id="bare", api={"base_url": "https://x.ai/v1", "auth": "none",
+                                 "model_ids": ["small"], "refuses_bearer": True})
+    choices = _site_client_configs([bare], TODAY)
+    assert [r["id"] for r in choices["opencode"]] == ["bare"]
+    assert not choices["codex"] and not choices["litellm"]
+    expired = make(id="expired", api={"base_url": "https://x.ai/v1", "model_ids": ["small"],
+        "model_access": {"small": {"source": "https://x.ai/free", "until": "2026-01-01T00:00:00Z"}}})
+    rows = expire_entries([expired], datetime(2026, 1, 2, tzinfo=timezone.utc))
+    assert not any(_site_client_configs(rows, TODAY).values())
+
+
+def test_client_choices_keep_shared_quotas_out_of_model_labels():
+    from freetier_radar.render import _site_client_configs
+
+    entry = make(api={"base_url": "https://x.ai/v1", "model_ids": ["small"]},
+        quotas=[{"amount": 10, "unit": "requests", "period": "day", "scope": "account",
+                 "source": "https://x.ai/free", "quote": "10 requests per day"}])
+    row = _site_client_configs([entry], TODAY)["opencode"][0]
+    assert "10 requests/day" in row["limits"]
+    assert "10" not in row["model"] and not row["access"]
+
+
+def test_browse_setup_choices_only_name_routes_with_generated_configs():
+    from freetier_radar.render import build_index
+
+    common = {"base_url": "https://x.ai/v1", "model_ids": ["small"]}
+    entries = [
+        make(id="chat", api=common),
+        make(id="bare", api={**common, "auth": "none", "refuses_bearer": True}),
+        make(id="dynamic", api={**common, "session_header": "x-session"}),
+        make(id="missing", api={"base_url": "https://x.ai/v1", "no_ids": "Keyed catalog"}),
+        make(id="gone", api=common, delisted={"on": TODAY, "reason": "Ended"}),
+        make(id="agent"),
+    ]
+    assert build_index(entries, TODAY)["client_configs"] == {
+        "opencode": ["chat", "bare"], "codex": ["chat"], "claude": [], "litellm": ["chat"]}
+
+
 def test_the_page_is_html_and_says_what_it_is(tmp_path):
     html = _render([make(models=[{"family": "a"}])], tmp_path)
     assert html.startswith("<!doctype html>")
@@ -42,7 +124,7 @@ def test_the_page_is_html_and_says_what_it_is(tmp_path):
     assert 'lang="en"' in html
     assert 'name="viewport"' in html
     assert "prefers-color-scheme" in html
-    assert re.findall(r'<script\b[^>]*\bsrc="([^"]+)"', html) == ["assets/model-name.js"]
+    assert re.findall(r'<script\b[^>]*\bsrc="([^"]+)"', html) == ["assets/model-name.js", "assets/search.js"]
     assert (TEMPLATES.parent / "assets/model-name.js").is_file()
     assert not re.search(r'<link\b[^>]*rel="stylesheet"', html), "no external styles"
 
@@ -479,27 +561,35 @@ def test_the_search_reads_what_the_page_renders(tmp_path):
                make(id="gone", name="Gone", retired_on=TODAY)]
     html = _render(entries, tmp_path)
     row = re.search(r'<tr id="row-a" data-id="a" data-section="api-free-tier"\s+'
-                    r'data-flags="([^"]*)">', html)
+                    r'data-flags="([^"]*)"', html)
     assert row and row.group(1).split() == ["nocard", "nokey", "strong"], row
     assert re.search(r'<tr id="row-b" data-id="b" [^>]*data-flags=""', html)
     assert re.search(r'<tr id="model-m1" data-family="m1" data-tier="strong"\s+'
                      r'data-rows="a b">', html)
-    assert '<tr data-id="gone">' in html
+    assert '<tr data-id="gone" data-search=' in html
     # The pages are read off the links the rows already carry.
     assert re.search(r'<td class="when" data-label="Verified">\s*<a href="[^"]+/providers/a/">', html)
-    script = html.split('id="search-config">')[1]
-    for selector in ('"section.listing tbody tr[data-id]"', '"#model-index tr[data-family]"',
-                     '"#archive tbody tr[data-id]"', '"a.name"', '"td.what"', '"td.limits"',
-                     '"td.models .chip"', '".tags"', '"td.when a"', '"th a"'):
-        assert selector in script, selector
-    for attr in ("id", "section", "flags"):
-        assert f'data-{attr}="' in html and f"dataset.{attr}" in script, attr
-    for attr in ("family", "tier", "rows"):
-        assert f'data-{attr}="' in html and f"dataset.{attr}" in script, attr
+    from html.parser import HTMLParser
+    class Rows(HTMLParser):
+        records = {}
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "tr" and "data-search" in attrs:
+                self.records[attrs["data-id"]] = json.loads(attrs["data-search"])
+    parser = Rows()
+    parser.feed(html)
+    from freetier_radar.render import build_index
+    canonical = {e["id"]: e["search"] for e in build_index(entries, TODAY)["entries"]}
+    assert parser.records == canonical
+    assert parser.records["a"]["models"] == ["m1"]
+    assert parser.records["a"]["flags"] == ["nocard", "nokey", "strong"]
+
 
 
 def _js_function(script: str, name: str) -> str:
     """One function of the page's script, its braces matched."""
+    if f"function {name}(" not in script:
+        script = (TEMPLATES.parent / "assets/search.js").read_text()
     start = script.index(f"function {name}(")
     depth = 0
     for i in range(script.index("{", start), len(script)):
@@ -507,6 +597,60 @@ def _js_function(script: str, name: str) -> str:
         if depth == 0:
             return script[start:i + 1]
     raise AssertionError(f"{name} does not close")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+@pytest.mark.parametrize("query,client_name,provider_name", [
+    ("?client=codex&provider=chat", "codex", "chat"),
+    ("?client=__proto__&provider=chat", "opencode", "chat"),
+    ("?client=constructor&provider=chat", "opencode", "chat"),
+    ("?client=claude&provider=chat", "claude", ""),
+    ("?client=codex&provider=removed", "codex", ""),
+])
+def test_shared_config_links_restore_only_existing_routes(tmp_path, query, client_name, provider_name):
+    html = _render([make()], tmp_path)
+    harness = "var location = " + json.dumps({"search": query}) + ";\n" + """
+    var configs = {opencode: [{id: 'chat'}], codex: [{id: 'chat'}], claude: []};
+    var client = {value: 'opencode'}, provider = {value: ''};
+    function chooseClient() { provider.value = ''; }
+    function chooseModel() {}
+    """ + _js_function(html, "restoreConfig") + """
+    restoreConfig();
+    console.log(JSON.stringify([client.value, provider.value]));
+    """
+    run = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
+    assert run.returncode == 0, run.stderr
+    assert json.loads(run.stdout) == [client_name, provider_name]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+def test_config_and_search_url_state_preserve_each_other(tmp_path):
+    html = _render([make()], tmp_path)
+    harness = """
+    var location = {href: 'https://example.test/list/?q=groq&nocard=1&review=abc#search'};
+    var client = {value: 'codex'}, provider = {value: 'kilo-code'}, model = {value: 'reflection/beam-free'};
+    var written;
+    var history = {replaceState: function(a, b, url) { written = url; }};
+    """ + _js_function(html, "syncConfig") + _js_function(html, "withoutSearch") + """
+    syncConfig();
+    location.search = new URL(written, location.href).search;
+    var CONFIG = {filters: [{id:'nocard'}, {id:'nokey'}]};
+    var clean = withoutSearch();
+    provider.value = '';
+    location.href = new URL(written, location.href).href;
+    syncConfig();
+    console.log(JSON.stringify({selected: location.href, clean: String(clean), cleared: written}));
+    """
+    run = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
+    assert run.returncode == 0, run.stderr
+    from urllib.parse import parse_qs, urlparse
+    got = json.loads(run.stdout)
+    selected = urlparse(got["selected"])
+    assert parse_qs(selected.query) == {"q": ["groq"], "nocard": ["1"], "review": ["abc"],
+                                         "client": ["codex"], "provider": ["kilo-code"], "model": ["reflection/beam-free"]}
+    assert selected.fragment == "plug"
+    assert parse_qs(got["clean"]) == {"review": ["abc"], "client": ["codex"], "provider": ["kilo-code"], "model": ["reflection/beam-free"]}
+    assert "provider" not in parse_qs(urlparse(got["cleared"]).query)
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
@@ -518,7 +662,7 @@ def test_the_search_finds_a_model_written_the_way_its_vendor_writes_it(tmp_path)
     script = _render([make()], tmp_path).split('id="search-config">')[1]
     names = ("fold", "squash", "prepareOffer", "prepareModel",
              "scoreOffer", "wholeOffer", "scoreModel", "spelled", "withAccess", "snippet")
-    harness = (TEMPLATES.parent / "assets/model-name.js").read_text() + "\n" + "\n".join(
+    harness = SEARCH_ASSETS + "\n" + "\n".join(
         _js_function(script, n) for n in names) + """
     function q(s) { return fold(s).split(" ").filter(Boolean); }
     function offer(models, limits, access, modelAccess, name) {
@@ -598,6 +742,49 @@ def test_the_search_filters_on_the_answers_the_rows_carry(tmp_path):
     assert flags <= {f[0] for f in SEARCH_FILTERS}
     words = [w for group in (*config["sections"], *config["filters"]) for w in group["words"]]
     assert len(words) == len(set(words)), "a word selects one filter"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+@pytest.mark.parametrize("query,clicked,initial,section,filters,remaining", [
+    ("api no card no key", "strong", {}, "api-free-tier", {"nocard", "nokey", "strong"}, ""),
+    ("api no card no key", "nocard", {}, "api-free-tier", {"nokey"}, ""),
+    ("api no card no key", "trial", {}, "trial", {"nocard", "nokey"}, ""),
+    ("apis no card strong models", "api-free-tier", {}, "", {"nocard", "strong"}, ""),
+    ("groq no key", "claude", {"section": "aggregator", "filters": {"nocard": True, "strong": True}},
+     "aggregator", {"nocard", "nokey", "strong", "claude"}, "groq"),
+    ("groq", "nocard", {}, "", {"nocard"}, "groq"),
+])
+def test_toggling_a_search_chip_preserves_other_choices(tmp_path, query, clicked, initial,
+                                                       section, filters, remaining):
+    html = _render([make()], tmp_path)
+    config = json.loads(re.search(r'id="search-config">(.*?)</script>', html, re.S).group(1))
+    script = html.split('id="search-config">')[1]
+    parser = script[script.index("function parse("):script.index("var wanted =")]
+    binding = script[script.index("CONFIG.sections.concat(CONFIG.filters).forEach("):
+                     script.index('input.addEventListener("input"')]
+    setup = {"CONFIG": config, "query": query, "initial": initial, "clicked": clicked}
+    harness = SEARCH_ASSETS + "\nvar args = " + json.dumps(setup) + ";\n" + """
+    var CONFIG = args.CONFIG, buttons = [], renders = 0;
+    var state = {section: args.initial.section || "", filters: args.initial.filters || {}};
+    var input = {value: args.query, focus: function () {}};
+    var chipsBox = {appendChild: function (button) {buttons.push(button);}};
+    var document = {createElement: function () {return {
+      dataset: {}, setAttribute: function () {},
+      addEventListener: function (event, callback) {this.click = callback;}
+    };}};
+    function render() {renders++;}
+    """ + _js_function(script, "fold") + parser + binding + """
+    buttons.find(function (b) {
+      return (b.dataset.filter || b.dataset.section) === args.clicked;
+    }).click();
+    console.log(JSON.stringify({state: state, query: input.value, renders: renders}));
+    """
+    run = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
+    assert run.returncode == 0, run.stderr
+    got = json.loads(run.stdout)
+    assert got["state"]["section"] == section
+    assert {f for f, on in got["state"]["filters"].items() if on} == filters
+    assert got["query"] == remaining and got["renders"] == 1
 
 
 def test_without_a_script_the_page_shows_no_search_it_cannot_run(tmp_path):

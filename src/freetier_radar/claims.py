@@ -11,8 +11,10 @@ claim that matches nothing checks nothing.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Callable, get_args
 
@@ -21,7 +23,10 @@ import yaml
 from .announce import MAX_AGE_DAYS, POSTS_PER_RUN
 from .bars import BAR_DAYS
 from .gate import EARNED
+from .history import EventType
 from .layout import MAP, Kind
+from .models import ApiInfo, ArchiveReview, Category, ClientLane, FreeAccess, RemainingFree, ModelBinding, ModelFamily, ModelTableExclusion, Newcomer, OPENCODE_OUTPUT_FIELD, OPENCODE_LEGACY_OUTPUT_FIELD, Probe, SessionEligibility
+from .page_dates import MODIFIED
 from .models import (ANCHOR_PHRASE_WORDS, ARCHIVE_AFTER_DAYS, ARCHIVE_AFTER_FAILURES,
                      CODEX_LITELLM_PROFILE, NOTICE_HOLD_DAYS,
                      PROBE_WEEKDAYS, SOURCE_RECHECK_DAYS, TIMES_A_WEEK, WATCH_RECHECK_DAYS,
@@ -30,7 +35,7 @@ from .prober import ROUTE_GONE, KEYLESS_IDS_TRIED, PROVISIONAL_PROMOTE_DAYS, UA
 from .quotes import MIN_WORDS
 from .render import (CATEGORY_TITLES, CODEX_SINCE, LITELLM_BRIDGE_SINCE, MODEL_PAGE_ROWS,
                      PAGES_URL, QUICKSTART_USER_AGENT, README_MODELS, README_PICKS,
-                     README_STARTERS, README_STRONG)
+                     README_STARTERS, README_STRONG, _site_client_configs)
 from .tiers import FRONTIER_WITHIN, STRONG_WITHIN
 from .validate import PROSE_LIMITS
 # The render's own words for a figure (see words.py).
@@ -38,6 +43,8 @@ from .words import number as _word, ordinal as _ordinal, series as _series, week
 from .borders import SHARED
 from .countries import country_name
 from .quotas import UNKNOWN_RECHECK_DAYS, UsageQuota
+from .quality import (CRITERIA, ELIGIBILITY_FIELDS, ELIGIBILITY_MAX_AGE_DAYS,
+                      CONFLICT_STATES, WITHDRAWAL_VERDICTS)
 
 __all__ = ["Claim", "CLAIMS", "SCHEDULED", "check_claims"]
 
@@ -67,6 +74,14 @@ def _keys(found: re.Match) -> tuple[str, ...]:
     return tuple(re.findall(r'"([a-z-]+)":', found.group(1)))
 
 
+def _ordered_keys(found: re.Match) -> tuple[str, ...]:
+    try:
+        pairs = json.loads('{' + found.group(1) + '}', object_pairs_hook=list)
+    except json.JSONDecodeError:
+        return ('invalid category order',)
+    return tuple(f'{key}:{value}' for key, value in pairs)
+
+
 def _ci_pythons(root: Path) -> tuple[str, str]:
     """The oldest and the newest Python CI runs the suite on."""
     ci = yaml.safe_load((root / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
@@ -86,6 +101,16 @@ def _cron_day(workflow: str) -> Callable[[Path], tuple[str, ...]]:
     return truth
 
 
+def _page_recovery_limits() -> tuple[str, ...]:
+    from .page_reader import RECOVERY_SECONDS, RECOVERY_REDIRECTS, RECOVERY_BYTES
+    return tuple(str(v) for v in (RECOVERY_SECONDS, RECOVERY_REDIRECTS, RECOVERY_BYTES // (1024 * 1024)))
+
+
+def _archive_review_limits(root: Path) -> tuple[str, ...]:
+    from .archive_review import ARCHIVE_RECHECK_DAYS, ARCHIVE_REVIEW_SECONDS
+    return (str(ARCHIVE_RECHECK_DAYS), str(ARCHIVE_REVIEW_SECONDS))
+
+
 def _site_url() -> tuple[str, str]:
     """PAGES_URL as Jekyll's `url` and `baseurl`."""
     host, base = PAGES_URL.rsplit("/", 1)
@@ -95,6 +120,11 @@ def _site_url() -> tuple[str, str]:
 def _review_push_base(root: Path) -> tuple[str, ...]:
     from .review import PUSH_BASE_FLAG
     return (PUSH_BASE_FLAG,)
+
+
+def _review_producer_workflows(root: Path) -> tuple[str, ...]:
+    from .review import PRODUCER_WORKFLOWS
+    return tuple(PRODUCER_WORKFLOWS)
 
 
 def _page_catalog_views(root: Path) -> tuple[str, ...]:
@@ -107,7 +137,199 @@ def _page_catalog_views(root: Path) -> tuple[str, ...]:
     return ("invalid canonical catalog",)
 
 
+def _catalog_arrival_spelling(root: Path) -> tuple[str, ...]:
+    import httpx
+    from .models import Entry
+    from .prober import unlisted_free_ids
+    entry = Entry.model_validate({
+        'id': 'claim', 'name': 'Claim', 'category': 'api-free-tier',
+        'url': 'https://vendor.example', 'source_urls': ['https://vendor.example/models'],
+        'offering': 'Free coding models', 'first_seen': '2026-07-19', 'last_verified': '2026-07-19',
+        'api': {'base_url': 'https://vendor.example/v1', 'model_ids': ['known:free']},
+        'probe': {'type': 'api-models', 'endpoint': 'https://vendor.example/models',
+                  'free_marker': ':free', 'require_zero_price': True}})
+    response = httpx.Response(200, json={'data': [
+        {'id': 'new-free', 'isFree': True, 'pricing': {'input': 0, 'output': 0}},
+        {'id': 'paid', 'isFree': False, 'pricing': {'input': 0, 'output': 0}}]})
+    return ('probe.free_marker',) if unlisted_free_ids(response, entry) == ['new-free'] else ()
+
+
+def _catalog_chat_operations(root: Path) -> tuple[str, ...]:
+    import httpx
+    from .models import Entry
+    from .prober import dead_model_ids
+    entry = Entry.model_validate({
+        'id': 'claim', 'name': 'Claim', 'category': 'trial',
+        'url': 'https://vendor.example', 'offering': 'A shared token balance',
+        'first_seen': '2026-07-19', 'last_verified': '2026-07-19', 'free_part': 'sum',
+        'api': {'base_url': 'https://vendor.example/v1', 'model_ids': ['candidate']},
+        'probe': {'type': 'page-keywords', 'endpoint': 'https://vendor.example/pricing',
+                  'keywords': ['100 million free tokens']}})
+    def notes(paths):
+        row = {'id': 'candidate', **({'supported_endpoints': paths} if paths is not None else {})}
+        return dead_model_ids(httpx.Response(200, json={'data': [row]}), entry)
+    return ('Chat Completions',) if (notes(['decisions']) and not notes(['chat.completions'])
+                                     and not notes(None)) else ()
+
+
+def _page_family_text(root: Path) -> tuple[str, ...]:
+    import httpx
+    from .models import Entry
+    from .prober import unevidenced_families
+    entry = Entry.model_validate({
+        'id': 'claim', 'name': 'Claim', 'category': 'api-free-tier',
+        'url': 'https://vendor.example', 'offering': 'Free models',
+        'first_seen': '2026-07-19', 'last_verified': '2026-07-19',
+        'models': [{'family': 'science-flash'}],
+        'probe': {'type': 'page-keywords', 'endpoint': 'https://vendor.example/pricing',
+                  'keywords': ['100 free requests per day']}})
+    bodies = ['<script>science-flash</script>', '<!-- science-flash -->', '<p>science-flash</p>']
+    missing = [bool(unevidenced_families(httpx.Response(200, text=b), entry)) for b in bodies]
+    return ('machinery_keywords', 'comments') if missing == [True, True, False] else ()
+
+
+def _unscored_tier_policy(root: Path) -> tuple[str, ...]:
+    from .models import Entry
+    from .tiers import Scored, review
+    entry = Entry.model_validate({
+        'id': 'claim', 'name': 'Claim', 'category': 'api-free-tier',
+        'url': 'https://vendor.example', 'offering': 'Free models',
+        'first_seen': '2026-07-19', 'last_verified': '2026-07-19',
+        'models': [{'family': family, 'aa_model': family, 'tier': 'strong'}
+                   for family in ('known', 'missing')],
+        'probe': {'type': 'page-keywords', 'endpoint': 'https://vendor.example/pricing',
+                  'keywords': ['100 free requests per day']}})
+    _, marks = review([entry], {
+        'top': Scored('top', 'Top', 50, False, False),
+        'known': Scored('known', 'Known', None, False, False)})
+    known, missing = (next(m for m in marks if m.family == f) for f in ('known', 'missing'))
+    return ('clears' if known.moved and known.measured is None else 'invalid',
+            'preserves' if missing.unknown and not missing.moved else 'invalid')
+
+
 CLAIMS: tuple[Claim, ...] = (
+    Claim("CONTRIBUTING.md",
+          r'An explicit `null` score in\s+a readable current leaderboard (clears) the old tier; a missing model or unreadable\s+source (preserves) it for review',
+          _unscored_tier_policy,
+          "tiers.review; full-table HTTP null/zero/missing/malformed/duplicate controls and unreadable-source preservation in tests/test_tiers.py"),
+    Claim("CONTRIBUTING.md", r'`remaining_free` records a separately continuing mode with its `(source)`, `(quote)`,\s+`(free_part)` \(`sum` or `unnamed`\) and optional payment `(access)`',
+          lambda root: tuple(RemainingFree.model_fields),
+          "models.RemainingFree and expire_entries; HTTP current/changed/unreadable offer controls and exact payment-preserving expiry in tests/test_remaining_free.py"),
+    Claim("CONTRIBUTING.md", r'`(model_bindings)` names the model and `quotas\[\]\.(model_ids)` binds its',
+          lambda root: tuple(k for cls, k in ((ClientLane, 'model_bindings'), (UsageQuota, 'model_ids'))
+                             if k in cls.model_fields),
+          "models.Entry._a_client_lane_is_a_lane_its_probe_reads; HTTP identity/allowance failures, unbound-wallet controls and shared expiry in tests/test_page_client_lane.py"),
+    Claim("CONTRIBUTING.md", r'Model names in scripts need explicit `(machinery_keywords)`; (comments) cannot keep\s+a family listed',
+          _page_family_text,
+          "prober.unevidenced_families; HTTP machinery/comment regression and rendered-text control in tests/test_page_family_machinery.py"),
+    Claim("CONTRIBUTING.md", r'An explicit catalog operation list must include `(Chat Completions)`',
+          _catalog_chat_operations,
+          "prober.dead_model_ids; actual page/catalog HTTP boundary and valid/absent metadata controls in tests/test_catalog_operations.py"),
+    Claim("CONTRIBUTING.md", r'Discovery checks every available catalog row marked or priced free, even when\s+its ID does not match `(probe.free_marker)`',
+          _catalog_arrival_spelling,
+          "prober.unlisted_free_ids; HTTP alternate-suffix and paid/unavailable controls in tests/test_model_table_inventory.py and tests/test_prober.py"),
+    Claim("CONTRIBUTING.md", r'`models\[\]\.(table_name)` binds',
+          lambda root: tuple(k for k in ModelFamily.model_fields if k == 'table_name'),
+          "models.ModelFamily; exact decorated-table-row and new-variant HTTP controls in tests/test_model_table_inventory.py"),
+    Claim("CONTRIBUTING.md", r'`probe.model_exclusions` records `(name)`, `(source)`, `(quote)` and `(reviewed_on)`',
+          lambda root: tuple(ModelTableExclusion.model_fields),
+          "models.ModelTableExclusion and HTTP inventory/exclusion controls in tests/test_model_table_inventory.py"),
+    Claim("CONTRIBUTING.md", r'exclusion\s+needs another manual review after (\d+) days',
+          lambda root: (str(UNKNOWN_RECHECK_DAYS),),
+          "prober.model_table_findings; dated source and exclusion controls in tests/test_model_table_inventory.py"),
+    Claim("CONTRIBUTING.md", r'`newcomers\[\]\.(table_name)` binds',
+          lambda root: tuple(k for k in Newcomer.model_fields if k == 'table_name'),
+          "models.Newcomer; exact eligible row-label check in prober.model_table_findings"),
+    Claim("CONTRIBUTING.md", r'`archive_review` pairs\s+`(checked_on)` with `(sources)`',
+          lambda root: tuple(ArchiveReview.model_fields),
+          "models.ArchiveReview; canonical current-source and date controls in tests/test_archive_review.py"),
+    Claim("CONTRIBUTING.md", r'(?s)manual review is at least (\d+) days old, through `freetier-archive-review`.*?Source collection has a\s+(\d+)-second budget',
+          _archive_review_limits,
+          "archive_review.due_entries and collect; scheduled HTTP and exclusion controls in tests/test_archive_review.py"),
+    Claim("CONTRIBUTING.md", r'history ends in `(removed)` appends `(restored)`',
+          lambda root: (EventType.REMOVED.value, EventType.RESTORED.value),
+          "history.diff_state and record_changes; legacy return preserves arrival and append-only prefix in tests/test_history.py"),
+    Claim("CONTRIBUTING.md", r'`payment_kind` accepts `(top-up)`, `(card verification)`, or `(charge)`',
+          lambda root: get_args(FreeAccess.model_fields['payment_kind'].annotation),
+          "models.FreeAccess; shared payment inheritance and rendering in tests/test_free_access.py"),
+    Claim("CONTRIBUTING.md", r"Every page under both carries `(last_modified_at)`",
+          lambda root: (MODIFIED,),
+          "page_dates.PageDates.stamp; tests/test_page_dates.py checks substantive changes, stable repeats, archives and legacy Git provenance"),
+    Claim("CONTRIBUTING.md", r"`(agent-cli)` contains coding tools with ongoing Free usage",
+          lambda root: (Category.AGENT_CLI.value,),
+          "models.Category; category is canonical registry data; review every advertised free mode on the current primary plan and usage sources"),
+    Claim("CONTRIBUTING.md", r"`(trial)` contains offers funded only\s+by a finite introductory grant or trial",
+          lambda root: (Category.TRIAL.value,),
+          "models.Category; recurring Free plans are distinct from optional paid-plan trials and finite signup grants"),
+    Claim("CONTRIBUTING.md", r"Set `read: (catalog)` to bind identity text to that exact ID",
+          lambda root: tuple(value for value in ModelBinding.model_fields['read'].annotation.__args__ if value == 'catalog'),
+          "quotes.model_binding_changes; exact-ID identity, other-row quote and duplicate-row HTTP controls in tests/test_model_bindings.py"),
+    Claim("CONTRIBUTING.md", r"`api\.(model_bindings)\[ID\]` or `client_lane\.(model_bindings)\[ID\]`",
+          lambda root: tuple("model_bindings" for kind in (ApiInfo, ClientLane) if "model_bindings" in kind.model_fields),
+          "models.entry_id_family; tests/test_model_bindings.py covers HTTP identity drift, distinct gateways, model pages and expiry"),
+    Claim("CONTRIBUTING.md", r"last-offer checks in `(historical_checks)`",
+          lambda root: ("historical_checks",),
+          "review.sources; same changed HTTP quota fails an active row and remains a visible historical mismatch for a delisted row"),
+    Claim("CONTRIBUTING.md", r"`probe\.(model_prices)` binds",
+          lambda root: tuple(k for k in ("model_prices",) if k in Probe.model_fields),
+          "models.ModelPriceTable and prober.unevidenced_families; paid-input/free-output HTTP-boundary regression"),
+    Claim("CONTRIBUTING.md", r"`probe\.(model_plan)` binds",
+          lambda root: tuple(k for k in ("model_plan",) if k in Probe.model_fields),
+          "models.ModelPlanTable and prober._table_models; Free/Enterprise, missing/duplicate table and duplicate-model HTTP controls"),
+    Claim("CONTRIBUTING.md", r"An OpenCode request budget can instead be chosen in `api\.(opencode_output_tokens)\[ID\]`",
+          lambda root: tuple(k for k in ("opencode_output_tokens",) if k in ApiInfo.model_fields),
+          "models.ApiInfo; client request budgets, distinct from model_limits, in tests/test_models.py"),
+    Claim("CONTRIBUTING.md", r"It writes `(max_completion_tokens)` into that model.s request options",
+          lambda root: (OPENCODE_OUTPUT_FIELD,),
+          "render.build_opencode_config; conformance.check_opencode_output_budget and the real freetier-review client recorder"),
+    Claim("CONTRIBUTING.md", r"and gives `(max_tokens)` the same budget for older clients",
+          lambda root: (OPENCODE_LEGACY_OUTPUT_FIELD,),
+          "render.build_opencode_config; OpenCode1.19.0 real HTTP/request-budget and completed native session control"),
+    Claim("CONTRIBUTING.md", r'these `criteria`: `(existing_behavior)`, `(reuse)`,\s+`(copy)`, `(user_path)`, `(regression)`, `(diff)`, `(eligibility)`',
+          lambda root: CRITERIA,
+          "quality.CRITERIA; judgment and normal pre-push regressions in tests/test_quality.py"),
+    Claim("CONTRIBUTING.md", r'current `(plan)`, `(payment)`,\s+`(regions)`, `(limits)`, `(deadline)`, and `(conflicts)`',
+          lambda root: ELIGIBILITY_FIELDS, "quality.validate_judgment; tests/test_quality.py"),
+    Claim("CONTRIBUTING.md", r'records older than\s+(one) day cannot authorize a new push',
+          lambda root: (_word(ELIGIBILITY_MAX_AGE_DAYS),), "quality.fresh_eligibility; tests/test_quality.py"),
+    Claim("CONTRIBUTING.md", r'`conflict_status` as `(none)`, `(resolved)`,\s+or `(unresolved)`',
+          lambda root: CONFLICT_STATES,
+          "quality.validate_judgment; unresolved withdrawal and ordinary disclosure controls in tests/test_quality.py"),
+    Claim("CONTRIBUTING.md", r'Each mode must be\s+`(ended)` or `(ineligible)`',
+          lambda root: WITHDRAWAL_VERDICTS,
+          "quality.validate_judgment; available recurring mode blocks archival in tests/test_quality.py"),
+    Claim("CONTRIBUTING.md", r'inputs: `(provider_ids)` selects',
+          lambda root: tuple(k for k in (yaml.safe_load((root / '.github/workflows/update.yml').read_text()).get('on')
+              or yaml.safe_load((root / '.github/workflows/update.yml').read_text()).get(True))['workflow_dispatch']['inputs']
+              if k == 'provider_ids'),
+          "update.yml; exact workflow arguments, injection controls and isolated HTTP verification in tests/test_targeted_verification.py and tests/test_prober.py"),
+    Claim("CONTRIBUTING.md", r'an exact model/plan `(table)` binding, the free cell.s `(value)`, and a `(plan_price)`',
+          lambda root: tuple(field for field in ('table', 'value', 'plan_price')
+                             if field in SessionEligibility.model_fields),
+          "models.SessionEligibility and scoped HTTP/paid-plan regressions in tests/test_eligibility.py"),
+    Claim("browse.html", r'function noAccount\(e\) \{ return e\.(no_account) === true; \}',
+          lambda root: ('no_account',),
+          "render.build_index publishes render.needs_no_account; actual browser parity in tests/test_evidence_contracts.py"),
+    Claim("browse.html", r'dataUseWords = data\.(data_use_words);',
+          lambda root: ('data_use_words',),
+          "render.build_index publishes DATA_USE_WORDS; reviewed-copy propagation in tests/test_browse.py"),
+    Claim("browse.html", r'(?s)<select id="client"[^>]*>(.*?)</select>',
+          lambda root: tuple(_site_client_configs([], date.min)),
+          "render._site_client_configs; exact eligibility, unsupported native-only lanes and selected-client controls in tests/test_browse.py",
+          read=lambda match: tuple(re.findall(r'<option value="([^"]+)"', match[1]))),
+    Claim("browse.html", r'configClients = data\.(client_configs) \|\| \{\};',
+          lambda root: ('client_configs',),
+          "render.build_index derives membership from generated writers; tests/test_site.py and tests/test_browse.py"),
+    Claim("browse.html", r'return lane \? lane\.(model_ids) \|\| \[\] : \[\];',
+          lambda root: tuple(field for field in ('model_ids',)
+                             if all(field in kind.model_fields for kind in (ApiInfo, ClientLane))),
+          "models.ApiInfo and ClientLane; current versus ignored exact-ID regression in tests/test_browse.py"),
+    Claim("browse.html", r'e\.access_labels\.(ids) && e\.access_labels\.ids\[id\]',
+          lambda root: ('ids',),
+          "render._index_access_labels uses models.id_access/access_words; full deadline and inherited-payment controls in tests/test_browse.py"),
+    Claim("CONTRIBUTING.md", r"last-offer checks in `(historical_checks)`,\s+including source-read failures under `(sources)`",
+          lambda root: ("historical_checks", "sources"),
+          "review.sources; historical/shared/explicit HTTP-boundary controls in tests/test_review.py"),
     Claim("CONTRIBUTING.md", r"`quotas` stores `(amount)`, `(unit)`, `(period)` and `(scope)`",
           lambda root: tuple(field for field in ("amount", "unit", "period", "scope")
                              if field in UsageQuota.model_fields),
@@ -129,6 +351,9 @@ CLAIMS: tuple[Claim, ...] = (
           _page_catalog_views, "models.PageCatalog, Entry and _row_payload; tests/test_page_catalog.py"),
     Claim("CONTRIBUTING.md", r"`prepare (--push-base) <commit>` records the commit immediately before the final",
           _review_push_base, "review.PUSH_BASE_FLAG and prepare; push-range regressions in tests/test_review.py"),
+    Claim("CONTRIBUTING.md", r"For a bot (verification) or (expiry) commit, add `prepare --verification-run",
+          _review_producer_workflows,
+          "review.PRODUCER_WORKFLOWS and prepare; matching main-writer receipt regressions in tests/test_review.py"),
     Claim("CONTRIBUTING.md", r"and it\s+expires after (\d+) days, at which point the scout",
           lambda root: (str(WATCH_RECHECK_DAYS),), "models.WATCH_RECHECK_DAYS"),
     Claim("CONTRIBUTING.md", r"Those verdicts expire after (\d+)\s+days",
@@ -172,6 +397,8 @@ CLAIMS: tuple[Claim, ...] = (
           lambda root: (_word(MODEL_PAGE_ROWS),), "render.MODEL_PAGE_ROWS"),
     Claim("CONTRIBUTING.md", r"sends the check on to the next id, up to\s+(\w+),",
           lambda root: (_word(KEYLESS_IDS_TRIED),), "prober.KEYLESS_IDS_TRIED"),
+    Claim("CONTRIBUTING.md", r"recovery, with a (\d+)-second budget,\s+up to (\d+) redirects and an (\d+) MiB body limit",
+          lambda root: _page_recovery_limits(), "page_reader recovery limits"),
     Claim("CONTRIBUTING.md", r"always calls under this\s+project's own `([^`]+)`",
           lambda root: (UA["User-Agent"],), "prober.UA"),
     Claim("CONTRIBUTING.md", r"sends `User-Agent: ([^`]+)`",
@@ -215,8 +442,9 @@ CLAIMS: tuple[Claim, ...] = (
     Claim("browse.html", r'<link rel="canonical" href="([^"]+)/browse\.html">',
           lambda root: (PAGES_URL,), "render.PAGES_URL"),
     Claim("browse.html", r"var ORDER = \{([^}]*)\}",
-          lambda root: tuple(c.value for c in CATEGORY_TITLES), "render.CATEGORY_TITLES",
-          read=_keys),
+          lambda root: tuple(f'{c.value}:{index}' for index, c in enumerate(CATEGORY_TITLES)),
+          "render.CATEGORY_TITLES order; divergence controls in tests/test_claims.py",
+          read=_ordered_keys),
     Claim("browse.html", r"var LABEL = \{([^}]*)\}",
           lambda root: tuple(c.value for c in CATEGORY_TITLES), "render.CATEGORY_TITLES",
           read=_keys),

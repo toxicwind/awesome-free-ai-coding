@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'SEA-LION (AI Singapore) free tier: limits, free models, verified 2026-10-05'
-description: AI Singapore's open Southeast-Asian model family behind a first-party OpenAI-compatible API — the vendor hosting its own weights rather than a gateway reselling somebody else's. The free API is intended for prototyping; production use is directed to cloud partners. The free-offer page names no…
+title: 'SEA-LION (AI Singapore) free tier: limits, free models, verified 2026-10-26'
+description: AI Singapore's OpenAI-compatible API for its Southeast Asian language models. The free API is intended for prototyping; production use is directed to cloud partners. The free-offer page names no model, while the model API docs publish the per-user rate. No token or credit budget or expiry is stated.
 permalink: /providers/sea-lion/
-last_modified_at: 2026-10-05
+last_modified_at: 2026-10-26
 crumb: SEA-LION (AI Singapore)
 ---
 
@@ -11,15 +11,15 @@ crumb: SEA-LION (AI Singapore)
 
 # SEA-LION (AI Singapore) free tier
 
-🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-05 · [sea-lion.ai](https://sea-lion.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-26 · [sea-lion.ai](https://sea-lion.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-AI Singapore's open Southeast-Asian model family behind a first-party OpenAI-compatible API — the vendor hosting its own weights rather than a gateway reselling somebody else's
+AI Singapore's OpenAI-compatible API for its Southeast Asian language models
 
 ## Free models
 
-The page this row is verified against names no free model, so the column stays empty; callable ids, where the row has them, are under Connect.
+No free model family is currently listed here; callable ids, where the row has them, are under Connect.
 
 ## Limits, in the vendor's words
 
@@ -62,6 +62,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

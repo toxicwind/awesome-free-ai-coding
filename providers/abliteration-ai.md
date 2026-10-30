@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'abliteration.ai free tier: limits, free models, verified 2026-10-08'
-description: OpenAI- and Anthropic-compatible API for three uncensored reasoning models, the large one derived from GLM-5.3, that opens with a one-credit free preview and no card. Sign in to use the preview without a card. A preview credit's fiat value is unpublished even though the organization balance…
+title: 'abliteration.ai free tier: limits, free models, verified 2026-10-26'
+description: OpenAI- and Anthropic-compatible API for uncensored reasoning models, with a one-credit free preview and no card. Sign in to use the preview without a card. A preview credit's fiat value is unpublished even though the organization balance endpoint uses USD; no conversion is inferred. Further usage…
 permalink: /providers/abliteration-ai/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-28
 crumb: abliteration.ai
 ---
 
@@ -11,19 +11,19 @@ crumb: abliteration.ai
 
 # abliteration.ai free tier
 
-🎁 Trials (no card when possible) · no card · **live** — last verified by a probe on 2026-10-08 · [abliteration.ai](https://abliteration.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🎁 Trials (no card when possible) · no card · **live** — last verified by a probe on 2026-10-26 · [abliteration.ai](https://abliteration.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-OpenAI- and Anthropic-compatible API for three uncensored reasoning models, the large one derived from GLM-5.3, that opens with a one-credit free preview and no card
+OpenAI- and Anthropic-compatible API for uncensored reasoning models, with a one-credit free preview and no card
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
-1 credits once per organization
+1 credit once per organization
 
 Sign in to use the preview without a card. A preview credit's fiat value is unpublished even though the organization balance endpoint uses USD; no conversion is inferred. Further usage needs prepaid credit or a paid plan and is billed per token. The models stream, call tools and think before answering by default.
 
@@ -40,9 +40,9 @@ What you send is not used to train models. In the vendor's words: “Prompts, co
 - Base URL: `https://api.abliteration.ai/v1`
 - Key: `ABLITERATION_AI_API_KEY` — get one at <https://abliteration.ai/console>
 - Anthropic-format base (Claude Code's `ANTHROPIC_BASE_URL`): `https://api.abliteration.ai`
-- Codex CLI: [`configs/codex/abliteration-ai.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/abliteration-ai.config.toml) — copy it to `~/.codex/`, then `codex -p abliteration-ai`; set up on the lane by the vendor's own page, <https://docs.abliteration.ai/integrations/codex>: "To use Codex with abliteration.ai, register a custom model provider"
-- Callable ids: `abliterated-model-large-v2`, `abliterated-model`, `abliterated-model-large`
-- Note: ids are the three the docs' models page serves, read 2026-09-23 — abliterated-model-large the previous large model, from GLM-5.2; /v1/models answers 401 without a key. The Claude Code guide sets ANTHROPIC_BASE_URL=https://api.abliteration.ai with an ak_ key as ANTHROPIC_AUTH_TOKEN, the client appending /v1/messages
+- Codex CLI: [`configs/codex/abliteration-ai.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/abliteration-ai.config.toml) — copy it to `~/.codex/`, then `codex -p abliteration-ai`; set up on the lane by the vendor's own page, <https://docs.abliteration.ai/integrations/codex>: "To use Codex with Abliteration"
+- Callable ids: `abliterated-model-large-flash`, `abliterated-model-large-v2`, `abliterated-model`, `abliterated-model-large`
+- Note: Abliterated Large Flash and abliterated-model support image inputs; Large v2 and the deprecated Large model are text-only. The deprecated abliterated-model-large remains documented as available for existing integrations. All listed models support Chat Completions, Responses and Messages.
 
 Try it from your terminal with your key in `ABLITERATION_AI_API_KEY` — it goes from your machine to the vendor and nowhere else:
 
@@ -50,7 +50,7 @@ Try it from your terminal with your key in `ABLITERATION_AI_API_KEY` — it goes
 curl -s https://api.abliteration.ai/v1/chat/completions \
   -H "Authorization: Bearer $ABLITERATION_AI_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"abliterated-model-large-v2","messages":[{"role":"user","content":"2+2? MAKE NO MISTAKES."}]}'
+  -d '{"model":"abliterated-model-large-flash","messages":[{"role":"user","content":"2+2? MAKE NO MISTAKES."}]}'
 ```
 
 ## Evidence
@@ -70,6 +70,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'qwen3.7-flash free: 2 providers, limits and ids, verified 2026-10-08'
-description: qwen3.7-flash is served free by Alibaba Cloud Model Studio (DashScope, international) and BazaarLink. None asks for a card. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'qwen3.7-flash free: 1 provider, limits and ids, provider probes 2026-10-26'
+description: qwen3.7-flash is served free by Alibaba Cloud Model Studio (DashScope, international). It asks for no card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/qwen3.7-flash/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: qwen3.7-flash
 ---
 
@@ -11,7 +11,7 @@ crumb: qwen3.7-flash
 
 # Where qwen3.7-flash is free
 
-**2 rows on the list serve `qwen3.7-flash` free:** Alibaba Cloud Model Studio (DashScope, international) and BazaarLink. None asks for a card. The published offers were checked on 2026-10-08 and are rechecked twice a week.
+**One row on the list serves `qwen3.7-flash` free:** Alibaba Cloud Model Studio (DashScope, international). It asks for no card. The provider's last scheduled probe was on 2026-10-26; its offer is rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,16 +19,20 @@ crumb: qwen3.7-flash
 
 ### [Alibaba Cloud Model Studio (DashScope, international)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/alibaba-model-studio/)
 
-🔌 LLM APIs with free tier · no card · not offered in mainland China · verified 2026-10-08 · listed since 2026-09-25
+🔌 LLM APIs with free tier · no card · not offered in mainland China · last probe 2026-10-26 · listed since 2026-09-25
 
-A million free tokens on each of its chat models in the Singapore region — Qwen, DeepSeek and GLM among them — valid 90 days from activation or the model's release; OpenAI-compatible
+Model-specific free token grants in Singapore, typically one million tokens valid for 90 days; some models retain only previously issued allowances; OpenAI-compatible
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
 
-- Limits, in the vendor's words: Typical signup grant: 1,000,000 tokens once per account per model (Valid for 90 days from activation, model release or approval, whichever is later)
+- Limits, in the vendor's words: Typical model token grant: 1,000,000 tokens once per account per model (Where granted; valid for 90 days from activation, model release or approval, whichever is later)
 
-Free grants apply in Singapore (international) only, independently per model and dated snapshot. The model pricing tables decide eligibility: Kimi has no free-quota column and glm-5.2-fast-preview has none. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default.
+Removed model-grant campaigns: Usage allowance: see your account for values (period not published) per account per model (only previously issued quotas, until expiry or exhaustion; no new grants)
+
+Separate OAuth allowance: 2,000 requests/day; scope not published (separate from API-key token grants)
+
+Free token grants apply in Singapore (international), independently per model and dated snapshot. Current pricing tables decide new-grant eligibility. Some older models and snapshots no longer receive new grants; previously issued quotas remain usable until expiry or exhaustion. Check the console for each model's remaining quota. Kimi and glm-5.2-fast-preview have no API-key grant. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default. OAuth has a separate allowance; its eligible models and reset time are not established here.
 
 </details>
 
@@ -37,30 +41,9 @@ Free grants apply in Singapore (international) only, independently per model and
 - Callable ids: `qwen3.7-flash`
 - What you send is not used to train models ([the vendor's words](https://www.alibabacloud.com/help/en/model-studio/privacy-notice)).
 
-### [BazaarLink](https://mvalentsev.github.io/awesome-free-ai-coding/providers/bazaarlink/)
+## Rows that listed it before
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-08-03
-
-OpenAI-compatible gateway with a shared free allowance on selected models and an auto:free router
-
-<details markdown="block">
-<summary>Provider-wide limits</summary>
-
-- Limits, in the vendor's words: Without credit: 10 requests/minute; 60 weighted units/day per account
-
-With credit: 20 requests/minute; 120 weighted units/day per account
-
-Free models: 2 requests at once per account
-
-Free models: 15 requests/minute shared across the endpoint
-
-The free models share each account's daily weighted allowance, reset at 00:00 UTC. Longer inputs can consume more units. Account concurrency and the site-wide rate also apply. Paid fallback happens only when enabled and the account has sufficient credit. Free IDs and their metered twins are separate catalog routes.
-
-</details>
-
-- Base URL: `https://api.bazaarlink.ai/v1`
-- Key: `BAZAARLINK_API_KEY` — get one at <https://bazaarlink.ai/keys>
-- Callable ids: `qwen/qwen3.7-flash:free`
+- [BazaarLink](https://mvalentsev.github.io/awesome-free-ai-coding/providers/bazaarlink/) — listed 2026-08-03 to 2026-10-19
 
 ## Related models
 
@@ -69,6 +52,6 @@ The free models share each account's daily weighted allowance, reset at 00:00 UT
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

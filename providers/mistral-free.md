@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Mistral Studio free tier: limits, free models, verified 2026-10-05'
+title: 'Mistral Studio free tier: limits, free models, verified 2026-10-26'
 description: Mistral's Free mode — no-card API access with an unpublished monthly allowance shared across Studio, API and the Vibe coding CLI. The monthly allowance is shared across Studio, API and Vibe usage in the organization; its Free-mode amount is not published. Free mode is the default for new accounts…
 permalink: /providers/mistral-free/
-last_modified_at: 2026-10-05
+last_modified_at: 2026-10-26
 crumb: Mistral Studio
 ---
 
@@ -11,7 +11,7 @@ crumb: Mistral Studio
 
 # Mistral Studio free tier
 
-🔌 LLM APIs with free tier · no card · not offered in Iran, Syria, Cuba and 1 more place · **live** — last verified by a probe on 2026-10-05; the probe since has not found that evidence, and 3 misses in a row archive the row · [mistral.ai](https://mistral.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · not offered in Iran, Syria, Cuba and 1 more place · **live** — last verified by a probe on 2026-10-26 · [mistral.ai](https://mistral.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -19,7 +19,7 @@ Mistral's Free mode — no-card API access with an unpublished monthly allowance
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
@@ -70,6 +70,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

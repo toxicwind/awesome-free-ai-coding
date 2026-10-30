@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'qwen3.8-27b free: 8 providers, limits and ids, verified 2026-10-08'
-description: qwen3.8-27b is served free by Groq, LLMTR, LLM Tech, Hetzner Inference API, Alibaba Cloud Model Studio (DashScope, international), Regolo AI, VLM Run Gateway and OVHcloud AI Endpoints. None asks for a card; LLM Tech, VLM Run Gateway and OVHcloud AI Endpoints answer with no account at all. Each…
+title: 'qwen3.8-27b free: 9 providers, limits and ids, provider probes 2026-10-26'
+description: qwen3.8-27b is served free by Groq, LLMTR, LLM Tech, Hetzner Inference API, Alibaba Cloud Model Studio (DashScope, international), IteraCompute, Regolo AI, VLM Run Gateway and OVHcloud AI Endpoints. None asks for a card; LLM Tech, VLM Run Gateway and OVHcloud AI Endpoints answer with no account at…
 permalink: /models/qwen3.8-27b/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: qwen3.8-27b
 ---
 
@@ -11,7 +11,7 @@ crumb: qwen3.8-27b
 
 # Where qwen3.8-27b is free
 
-**8 rows on the list serve `qwen3.8-27b` free:** Groq, LLMTR, LLM Tech, Hetzner Inference API, Alibaba Cloud Model Studio (DashScope, international), Regolo AI, VLM Run Gateway and OVHcloud AI Endpoints. None asks for a card; LLM Tech, VLM Run Gateway and OVHcloud AI Endpoints answer with no account at all. The published offers were checked on 2026-10-08 and are rechecked twice a week. It measures **strong**: within 25 points of the top of the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/models/qwen3-8-27b).
+**9 rows on the list serve `qwen3.8-27b` free:** Groq, LLMTR, LLM Tech, Hetzner Inference API, Alibaba Cloud Model Studio (DashScope, international), IteraCompute, Regolo AI, VLM Run Gateway and OVHcloud AI Endpoints. None asks for a card; LLM Tech, VLM Run Gateway and OVHcloud AI Endpoints answer with no account at all. The providers' last scheduled probes were on 2026-10-26; their offers are rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: qwen3.8-27b
 
 ### [Groq](https://mvalentsev.github.io/awesome-free-ai-coding/providers/groq-free/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-17
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-17
 
 Fast inference against a free plan Groq publishes as a per-model rate table
 
@@ -39,39 +39,50 @@ These are the Free Plan limits for the coding models, shared by keys in the same
 
 ### [LLMTR](https://mvalentsev.github.io/awesome-free-ai-coding/providers/llmtr/)
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-10-05
+🧭 Aggregators (one key, many providers) · no card · last probe 2026-10-26 · listed since 2026-10-05
 
 Turkish OpenAI-compatible gateway with free models on a zero balance and dated previews; some previews require a previous top-up
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
 
-- Limits, in the vendor's words: Nemotron Ultra/Super and Qwen3.8 27B: Daily usage allowance: amount not published; scope not published; for `nvidia/nemotron-3-ultra-550b-a55b`, `nvidia/nemotron-3-super-120b-a12b`, `qwen/qwen3.8-27b-free`
+- Limits, in the vendor's words: Nemotron Ultra and Qwen3.8 27B: Daily usage allowance: amount not published; scope not published; for `nvidia/nemotron-3-ultra-550b-a55b`, `qwen/qwen3.8-27b-free`
 
-Apodex 1.1 Mini: Daily usage allowance: amount not published per account per model; for `apodex/apodex-1.1-mini-free`
+Heabsy Qwen3.8 27B: Daily usage allowance: amount not published per account; for `heabsy/qwen3.8-27b-heabsy-free`
 
-Free chat rows can be called on a new account with zero balance before any top-up. Laguna XS 2.1 follows Poolside's free inference offer, without a token allowance to track. Paid use is prepaid; an 8% margin applies once at top-up, not to model prices. Prompt and response bodies are not permanently written to the usage and billing database. Apodex Mini can close before its recorded deadline if the promotion pool runs out.
+Nemotron3.5 Super VL: Daily usage allowance: amount not published; scope not published; for `nvidia/nemotron-3.5-super-vl-free`
+
+Jais 3 MoVA: 200,000 tokens/day per account per model (Input and output count together; lower first-day allowance for new accounts); for `ifm/jais-3-mova-36b-a4b`. 00:00'da (TSİ)
+
+K2 Horizon: 200,000 tokens/day per account per model (Input, output and reasoning count together; lower first-day allowance for new accounts); for `ifm/k2-horizon-375b-a23b`. 00:00'da (TSİ)
+
+MiniMax M3.1 Flash: 5,000,000 tokens/day per account per model; for `minimax/minimax-m3.1-flash-free`. 00:00’da (TSİ)
+
+Shanghai AI Lab models: 500,000 tokens/day sharing scope disputed (Per model; model pages say per person, the guide says per account. Input, output and reasoning count; new accounts have a lower first-day allowance.); for `internlm/intern-s2-free`, `internlm/atria-dawn-free`, `internlm/atria-dawn-preview-free`, `internlm/agents-a1-free`, `internlm/sage-a1.5-free`. 00:00'da (TSİ)
+
+Free chat rows can be called on a new account with zero balance before any top-up. Paid use is prepaid; an 8% margin applies once at top-up, not to model prices. Prompt and response bodies are not permanently written to the usage and billing database. Heabsy requires provider-specific data-transfer consent: "Heabsy models cannot be called until your account has granted the data-transfer consent for Heabsy". Its stream is buffered until completion, and reasoning_effort is unsupported. For free Nemotron3.5 Super VL, inputs "may be retained by the provider and used to improve the model". Shanghai AI Lab prompts and completions may be logged by the provider and used to improve models.
 
 </details>
 
 - Base URL: `https://llmtr.com/v1`
 - Key: `LLMTR_API_KEY` — get one at <https://llmtr.com/dashboard/api-keys>
-- Callable ids: `qwen/qwen3.8-27b-free`
-- What you send may be used to train or improve models ([the vendor's words](https://llmtr.com/docs/en/gateway/poolside-laguna/)).
+- Callable ids: `qwen/qwen3.8-27b-free`, `heabsy/qwen3.8-27b-heabsy-free`
+- `heabsy/qwen3.8-27b-heabsy-free`: free until 2026-11-02 00:00+03:00 ([conditions](https://llmtr.com/models/heabsy/qwen3.8-27b-heabsy-free))
+- What you send may be used to train or improve models ([the vendor's words](https://llmtr.com/docs/en/gateway/nemotron-3-5-super-vl/)).
 
 ### [LLM Tech](https://mvalentsev.github.io/awesome-free-ai-coding/providers/llmtech/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-18
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-18
 
-EU provider of one model whose quickstart prints a shared trial key for anyone: 2M tokens a day per address and 4 concurrent requests, tool calls included, no account
+EU inference provider whose quickstart publishes a shared trial key: 20M tokens a day per IP, tools included, no account; API access ends November 1 at 00:00 UTC
 
-- Limits, in the vendor's words: 2,000,000 tokens/day per IP. reset at 00:00 UTC
+- Limits, in the vendor's words: 20,000,000 tokens/day per IP. reset at 00:00 UTC
 
-Shared trial key: 4 requests at once per key
+Shared trial key: Concurrent requests allowance: published sources disagree per key
 
 64 requests at once shared across the endpoint
 
-The public trial key shares its concurrency among all callers; the daily token budget is per IP and counts both prompt and completion. Its context is 131,072 tokens; personal paid keys have the full 262,144 and share the endpoint's separate inflight ceiling. Paid keys are issued by email, per token without subscription or minimum. Prompts and completions are volatile and never persisted or trained on; metadata, including IP, is retained 13 months. The sole proprietor operates in Poland, with GPUs in Italy behind a German edge.
+The API is scheduled to stop on November 1, 2026 at 00:00 UTC. The public trial key counts prompt and completion tokens per IP, resetting at 00:00 UTC. Its quickstart advertises 16 concurrent requests, while the same page's limits section still says 4; the effective ceiling is unconfirmed. Trial context is 131,072 tokens. Personal keys have 262,144 and share a separate endpoint inflight ceiling. Prompts and completions are volatile and not persisted or trained on; metadata including IP is retained 13 months. GPUs are in Italy behind a German edge.
 - Base URL: `https://api.llmtech.eu/v1`
 - Key: `LLMTECH_API_KEY` — no account needed: the vendor prints one for anyone at <https://llmtech.eu/docs/>, `lt-trial-ba1ef28c6d32ed6980678d8d`
 - Callable ids: `nvidia/Qwen3.8-27B-NVFP4`
@@ -79,7 +90,7 @@ The public trial key shares its concurrency among all callers; the daily token b
 
 ### [Hetzner Inference API](https://mvalentsev.github.io/awesome-free-ai-coding/providers/hetzner-inference/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-17
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-17
 
 OpenAI-compatible API on Hetzner's own EU hardware, free for as long as the experiment runs
 
@@ -99,16 +110,20 @@ Free while the Inference API remains experimental; Hetzner says it will email ad
 
 ### [Alibaba Cloud Model Studio (DashScope, international)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/alibaba-model-studio/)
 
-🔌 LLM APIs with free tier · no card · not offered in mainland China · verified 2026-10-08 · listed since 2026-09-25
+🔌 LLM APIs with free tier · no card · not offered in mainland China · last probe 2026-10-26 · listed since 2026-09-25
 
-A million free tokens on each of its chat models in the Singapore region — Qwen, DeepSeek and GLM among them — valid 90 days from activation or the model's release; OpenAI-compatible
+Model-specific free token grants in Singapore, typically one million tokens valid for 90 days; some models retain only previously issued allowances; OpenAI-compatible
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
 
-- Limits, in the vendor's words: Typical signup grant: 1,000,000 tokens once per account per model (Valid for 90 days from activation, model release or approval, whichever is later)
+- Limits, in the vendor's words: Typical model token grant: 1,000,000 tokens once per account per model (Where granted; valid for 90 days from activation, model release or approval, whichever is later)
 
-Free grants apply in Singapore (international) only, independently per model and dated snapshot. The model pricing tables decide eligibility: Kimi has no free-quota column and glm-5.2-fast-preview has none. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default.
+Removed model-grant campaigns: Usage allowance: see your account for values (period not published) per account per model (only previously issued quotas, until expiry or exhaustion; no new grants)
+
+Separate OAuth allowance: 2,000 requests/day; scope not published (separate from API-key token grants)
+
+Free token grants apply in Singapore (international), independently per model and dated snapshot. Current pricing tables decide new-grant eligibility. Some older models and snapshots no longer receive new grants; previously issued quotas remain usable until expiry or exhaustion. Check the console for each model's remaining quota. Kimi and glm-5.2-fast-preview have no API-key grant. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default. OAuth has a separate allowance; its eligible models and reset time are not established here.
 
 </details>
 
@@ -117,9 +132,26 @@ Free grants apply in Singapore (international) only, independently per model and
 - Callable ids: `qwen3.8-27b`
 - What you send is not used to train models ([the vendor's words](https://www.alibabacloud.com/help/en/model-studio/privacy-notice)).
 
+### [IteraCompute](https://mvalentsev.github.io/awesome-free-ai-coding/providers/iteracompute/)
+
+🔌 LLM APIs with free tier · no card · provisional since 2026-10-18 · last probe 2026-10-26 · listed since 2026-10-21
+
+OpenAI-compatible API with recurring free usage on a self-hosted open model
+
+- Limits, in the vendor's words: Qwen Free tier: 30,000,000 tokens/month per account; for `qwen/qwen3.8-27b`. Allowances reset on the first of each month at 00:00 UTC (08:00 Beijing time); unused tokens do not roll over.
+
+Qwen Free tier: 160,000 tokens/minute per account; for `qwen/qwen3.8-27b`
+
+Register and verify an email, or sign in with Google. Input and output, including reasoning, count across all account keys. "Context includes input and requested output; output is capped at 8,192 tokens." Free total context is 128K. Requests reserve maximum usage, then settle actual usage. Exhausted quota returns 429 without automatic paid overage. No recharge is required; optional cumulative $10/$50 top-ups unlock larger allowances. Recharge thresholds use completed principal minus refunds, excluding grants and fees. Spending the balance keeps the tier; refunds may lower it. Shared capacity may queue; honor Retry-After. No SLA. Zero data retention requires a separate signed agreement. The no-recharge Qwen promotion has a deadline; recharged Starter and Pro users retain tier benefits, while the model name, weights and precision may change.
+- Base URL: `https://api.iteracompute.com/v1`
+- Key: `ITERACOMPUTE_API_KEY` — get one at <https://platform.iteracompute.com/api-keys>
+- Callable ids: `qwen/qwen3.8-27b`
+- `qwen/qwen3.8-27b`: free until 2026-11-24 00:00-08:00 ([conditions](https://iteracompute.com/free/))
+- What you send is not used to train models ([the vendor's words](https://iteracompute.com/privacy.html)).
+
 ### [Regolo AI](https://mvalentsev.github.io/awesome-free-ai-coding/providers/regolo/)
 
-🎁 Trials (no card when possible) · no card · verified 2026-10-08 · listed since 2026-09-17
+🎁 Trials (no card when possible) · no card · last probe 2026-10-26 · listed since 2026-09-17
 
 EU (Italian) zero-retention inference; a month of full model access on a daily token allowance, no card
 
@@ -139,22 +171,28 @@ EU (Italian) zero-retention inference; a month of full model access on a daily t
 
 ### [VLM Run Gateway](https://mvalentsev.github.io/awesome-free-ai-coding/providers/vlm-run-gateway/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-17
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-17
 
-OpenAI-compatible gateway for vision and language models whose models on VLM Run's own GPUs answer anonymous callers — no signup, no key — at 100 requests a day per IP, in alpha
+OpenAI-compatible gateway whose GPU-served vision and language models accept anonymous callers — no signup or key — in beta
+
+<details markdown="block">
+<summary>Provider-wide limits</summary>
 
 - Limits, in the vendor's words: Anonymous lane: 10 requests/minute; 30 requests/hour; 100 requests/day per IP
 
-GPU-served models are public and anonymous; frontier models require paid access. All three IP windows apply together. The gateway is alpha and has a small catalog. Its published schema lacks a tools field, but a keyless tool request returned a tool call on 2026-09-17; that measurement does not make every model tool-capable. The operator is Autonomi AI Inc.; its terms render in a browser.
+GPU-served models are public and anonymous; frontier models require paid access. All three IP windows apply together and are shared by callers behind the same NAT or proxy. The gateway is beta; anonymous access is intended for evaluation. The operator is Autonomi AI Inc.; its terms render in a browser.
+
+</details>
+
 - Base URL: `https://gateway.vlm.run/v1/openai`
 - Key: none — the lane is anonymous
 - Callable ids: `qwen/qwen3.8-27b`
 
 ### [OVHcloud AI Endpoints](https://mvalentsev.github.io/awesome-free-ai-coding/providers/ovh-ai-endpoints/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-17
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-17
 
-EU-hosted serverless open-model API whose anonymous lane needs no signup, no key and no card (OpenAI-compatible), at two requests a minute per model shared by every anonymous caller
+EU-hosted serverless API for open models, with anonymous OpenAI-compatible access and no signup, key or card
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
@@ -177,12 +215,12 @@ The documentation attributes the anonymous cap to IP and model. Tests on 2026-09
 
 ## Related models
 
-- [`qwen3.8-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.8-flash/) — free at Alibaba Cloud Model Studio (DashScope, international) and Yolo-Auto
+- [`qwen3.8-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.8-flash/) — free at Alibaba Cloud Model Studio (DashScope, international), Qoder and Qoder CN (formerly Lingma)
 - [`qwen3.8-2.4t-a95b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.8-2.4t-a95b/) — free at Alibaba Cloud Model Studio (DashScope, international)
 - [`qwen3.8-max`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.8-max/) — free at Alibaba Cloud Model Studio (DashScope, international)
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

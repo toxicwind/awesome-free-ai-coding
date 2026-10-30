@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -9,12 +9,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yaml
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .words import number
-from .quotas import UsageQuota
+from .quotas import UsageQuota, QuotaTable
+from .source_urls import valid_source_url
+from .countries import quoted_codes
 
 # Words every vendor keeps on the page long after the offer is gone. A probe
 # built out of these alone verifies that the page loads, nothing more.
@@ -245,6 +247,7 @@ def id_family(families: Iterable[str], model_id: str) -> str | None:
 
 class ModelFamily(BaseModel):
     family: str
+    table_name: str | None = Field(default=None, min_length=1, exclude_if=lambda v: v is None)
     # A measurement, never a reputation (CONTRIBUTING, "tier: frontier is a
     # measurement"): how close the model this lane serves scores to the top of
     # the Artificial Analysis Intelligence Index, read by `freetier-tiers`. No
@@ -255,6 +258,16 @@ class ModelFamily(BaseModel):
     # The Artificial Analysis model the tier was read from: the slug of its page
     # on artificialanalysis.ai/models/, for the variant the lane actually serves.
     aa_model: str | None = None
+
+    @field_validator("table_name")
+    @classmethod
+    def _table_label(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("model table_name must name the eligible table row")
+        return value
 
     @field_validator("family", "superseded_by", mode="before")
     @classmethod
@@ -318,6 +331,77 @@ class Follow(BaseModel):
         return value
 
 
+class ModelPriceTable(BaseModel):
+    """Bind page model eligibility to both prices in the same table row."""
+    model_config = ConfigDict(extra="forbid")
+    headers: list[str] = Field(min_length=3)
+    name_column: str
+    price_columns: list[str] = Field(min_length=2)
+    free_value: str = Field(default="Free", min_length=1)
+
+    @model_validator(mode="after")
+    def _columns_are_bound(self):
+        columns = [self.name_column, *self.price_columns]
+        if len(set(columns)) != len(columns) or not set(columns) <= set(self.headers):
+            raise ValueError("model_prices needs distinct name and price columns in its headers")
+        if len(set(self.headers)) != len(self.headers):
+            raise ValueError("model_prices headers must be distinct")
+        if self.free_value.casefold() != "free" and not re.fullmatch(r"\$?0(?:\.0+)?", self.free_value):
+            raise ValueError("model_prices free_value must be Free or an explicit zero price")
+        return self
+
+
+class ModelPlanTable(BaseModel):
+    """Bind page model eligibility to an explicit inclusion cell for one plan."""
+    model_config = ConfigDict(extra="forbid")
+    headers: list[str] = Field(min_length=2)
+    name_column: str
+    plan_column: str
+    included_value: str = "✅"
+
+    @model_validator(mode="after")
+    def _columns_are_bound(self):
+        columns = [self.name_column, self.plan_column]
+        if len(set(columns)) != 2 or not set(columns) <= set(self.headers):
+            raise ValueError("model_plan needs distinct name and plan columns in its headers")
+        if len(set(self.headers)) != len(self.headers):
+            raise ValueError("model_plan headers must be distinct")
+        if self.included_value.casefold() not in {"yes", "true", "included", "free", "✅", "✓", "✔"}:
+            raise ValueError("model_plan included_value must be an explicit inclusion mark")
+        return self
+
+
+class ModelTableExclusion(BaseModel):
+    """A sourced, dated decision about an exact eligible table row."""
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1)
+    source: str
+    quote: str = Field(min_length=1)
+    reviewed_on: date
+
+    @field_validator("name", "quote")
+    @classmethod
+    def _meaningful_words(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("model table exclusion needs nonempty words")
+        return value
+
+    @field_validator("quote")
+    @classmethod
+    def _quote_explains_the_exclusion(cls, value: str) -> str:
+        if len(value.split()) < ANCHOR_PHRASE_WORDS:
+            raise ValueError("model table exclusion quote needs a complete eligibility statement")
+        return value
+
+    @field_validator("source")
+    @classmethod
+    def _source_is_public(cls, value: str) -> str:
+        if not valid_source_url(value):
+            raise ValueError("model table exclusion needs a credential-free HTTPS source")
+        return value
+
+
 class Probe(BaseModel):
     type: ProbeType
     endpoint: str
@@ -335,6 +419,9 @@ class Probe(BaseModel):
     # tag outlives the offer it was anchoring. Where the data blob IS the
     # evidence, say so here and the whole response is searched.
     machinery_keywords: list[str] = []
+    model_prices: ModelPriceTable | None = Field(default=None, exclude_if=lambda v: v is None)
+    model_plan: ModelPlanTable | None = Field(default=None, exclude_if=lambda v: v is None)
+    model_exclusions: list[ModelTableExclusion] = Field(default_factory=list, exclude_if=lambda v: not v)
     # api-models: the key a vendor lists its free lane under, for a document
     # that publishes lanes side by side instead of flagging rows. Cline's
     # recommended-models answers `recommended`, `free`, `clinePass` and
@@ -364,6 +451,20 @@ class Probe(BaseModel):
             raise ValueError(
                 f"probe {self.endpoint}: follow names a page to read for keywords, so it "
                 "belongs on a page-keywords probe")
+        return self
+
+    @model_validator(mode="after")
+    def _model_prices_read_a_page(self) -> Probe:
+        if self.model_prices is not None and self.type is not ProbeType.PAGE_KEYWORDS:
+            raise ValueError("model_prices belongs on a page-keywords probe")
+        if self.model_plan is not None and self.type is not ProbeType.PAGE_KEYWORDS:
+            raise ValueError("model_plan belongs on a page-keywords probe")
+        if self.model_prices is not None and self.model_plan is not None:
+            raise ValueError("use one model eligibility table binding per probe")
+        if self.model_exclusions and not (self.model_prices or self.model_plan):
+            raise ValueError("model_exclusions needs a bound model eligibility table")
+        if len({_squash(e.name) for e in self.model_exclusions}) != len(self.model_exclusions):
+            raise ValueError("model_exclusions names must be distinct")
         return self
 
     @model_validator(mode="after")
@@ -400,7 +501,7 @@ class Probe(BaseModel):
             raise ValueError(
                 f"probe {self.endpoint}: free_list stands in for the prices a catalog does "
                 "not publish, so it needs an api-models probe with require_zero_price: true")
-        if not self.free_list.startswith("https://"):
+        if not valid_source_url(self.free_list):
             raise ValueError(f"probe {self.endpoint}: free_list must be an https URL")
         return self
 
@@ -438,7 +539,7 @@ class Notice(BaseModel):
     @field_validator("url")
     @classmethod
     def _url_is_https(cls, value: str | None) -> str | None:
-        if value is not None and not value.startswith("https://"):
+        if value is not None and not valid_source_url(value):
             raise ValueError("notice url must be an https URL — a reader clicks it from the README")
         return value
 
@@ -460,7 +561,7 @@ class FreeSince(BaseModel):
     @field_validator("source")
     @classmethod
     def _source_is_a_page(cls, value: str) -> str:
-        if not value.startswith("https://"):
+        if not valid_source_url(value):
             raise ValueError(f"free_since source {value!r} is not an https URL — name the record "
                              "that shows the id free: a Wayback snapshot, the vendor's own snapshot")
         return value
@@ -484,6 +585,17 @@ class Newcomer(BaseModel):
     family: str
     on: date
     source: str  # the record itself, one a reader can open
+    table_name: str | None = Field(default=None, min_length=1, exclude_if=lambda v: v is None)
+
+    @field_validator("table_name")
+    @classmethod
+    def _table_label(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("newcomer table_name must name the eligible table row")
+        return value
 
     @field_validator("family")
     @classmethod
@@ -493,7 +605,7 @@ class Newcomer(BaseModel):
     @field_validator("source")
     @classmethod
     def _source_is_a_page(cls, value: str) -> str:
-        if not value.startswith("https://"):
+        if not valid_source_url(value):
             raise ValueError(f"newcomer source {value!r} is not an https URL — name the record "
                              "that shows the model free: a Wayback snapshot, a commit of this list")
         return value
@@ -520,7 +632,7 @@ class CodexRoute(BaseModel):
     @classmethod
     def _base_is_what_codex_appends_to(cls, value: str) -> str:
         value = value.rstrip("/")
-        if not value.startswith("https://"):
+        if not valid_source_url(value):
             raise ValueError("api.codex.base_url must be an https URL")
         if value.endswith("/responses"):
             raise ValueError("api.codex.base_url is the base Codex appends /responses to — "
@@ -530,7 +642,7 @@ class CodexRoute(BaseModel):
     @field_validator("source")
     @classmethod
     def _source_is_https(cls, value: str | None) -> str | None:
-        if value is not None and not value.startswith("https://"):
+        if value is not None and not valid_source_url(value):
             raise ValueError("api.codex.source must be an https URL")
         return value
 
@@ -572,7 +684,7 @@ class FreeAccess(BaseModel):
     model_config = ConfigDict(extra="forbid")
     source: str
     initial_payment_usd: float | None = Field(default=None, gt=0, allow_inf_nan=False)
-    payment_kind: Literal["top-up", "card verification"] = Field(
+    payment_kind: Literal["top-up", "card verification", "charge"] = Field(
         default="top-up", exclude_if=lambda v: v == "top-up")
     topup_fee_percent: float = Field(default=0, ge=0, allow_inf_nan=False,
                                      exclude_if=lambda v: not v)
@@ -581,7 +693,7 @@ class FreeAccess(BaseModel):
     @field_validator("source")
     @classmethod
     def _source_is_https(cls, value: str) -> str:
-        if urlparse(value).scheme != "https" or not urlparse(value).netloc:
+        if not valid_source_url(value):
             raise ValueError("access source must be an https URL")
         return value
 
@@ -600,7 +712,29 @@ class FreeAccess(BaseModel):
                                       or self.payment_kind != "top-up"):
             raise ValueError("a top-up fee needs an initial top-up")
         if self.payment_kind != "top-up" and self.initial_payment_usd is None:
-            raise ValueError("card verification needs its charge")
+            raise ValueError("a payment kind needs its charge")
+        return self
+
+
+class RemainingFree(BaseModel):
+    """A separately sourced free mode that survives the last model promotion."""
+    model_config = ConfigDict(extra="forbid")
+    source: str
+    quote: str = Field(min_length=12, max_length=1200)
+    free_part: Literal[FreePart.SUM, FreePart.UNNAMED]
+    access: FreeAccess | None = None
+
+    @field_validator("source")
+    @classmethod
+    def _source_is_public(cls, value):
+        return FreeAccess._source_is_https(value)
+
+    @model_validator(mode="after")
+    def _remaining_access_is_not_another_model_deadline(self):
+        if self.access and self.access.until:
+            raise ValueError("remaining_free access records payment, not a model deadline")
+        if not self.quote.strip() or "..." in self.quote or "…" in self.quote:
+            raise ValueError("remaining_free needs one complete offer quote")
         return self
 
 
@@ -621,9 +755,24 @@ class CreditBudget(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9-]+$")
     amount: int | None = Field(default=None, gt=0, strict=True)
     quote: str | None = Field(default=None, min_length=3, max_length=1200)
+    amount_source: str | None = Field(default=None, exclude_if=lambda v: v is None)
+    amount_quote: str | None = Field(default=None, min_length=3, max_length=1200,
+                                     exclude_if=lambda v: v is None)
     scope: Literal["countries", "else", "vpn"] = Field(
         default="countries", exclude_if=lambda v: v == "countries")
     countries: list[str] = Field(default_factory=list, exclude_if=lambda v: not v)
+
+    @field_validator('amount_source')
+    @classmethod
+    def _amount_source_is_https(cls, value):
+        return FreeAccess._source_is_https(value) if value else value
+
+    @field_validator('amount_quote')
+    @classmethod
+    def _amount_quote_is_checkable(cls, value):
+        if value is not None and (len(value.split()) < 3 or '…' in value or '...' in value):
+            raise ValueError('a budget amount needs one checkable source fragment of at least three words')
+        return value
 
     @model_validator(mode="after")
     def _scope_names_known_countries(self) -> CreditBudget:
@@ -632,19 +781,60 @@ class CreditBudget(BaseModel):
             raise ValueError("a country budget needs countries; else/vpn budgets do not name countries")
         if len(set(self.countries)) != len(self.countries) or any(c not in COUNTRIES for c in self.countries):
             raise ValueError("budget countries must be distinct known country codes")
+        if bool(self.amount_source) != bool(self.amount_quote) or (
+                self.amount_quote and (self.amount is None or not self.quote)):
+            raise ValueError('a separately sourced budget amount needs its amount, source and quote')
+        return self
+
+
+class SessionEligibility(BaseModel):
+    """Bind an active free offer to a model cell and its named plan."""
+    model_config = ConfigDict(extra="forbid")
+    plan: str = Field(min_length=1)
+    table: QuotaTable
+    value: str = Field(min_length=1)
+    plan_price: QuotaTable | None = Field(default=None, exclude_if=lambda v: v is None)
+
+    @model_validator(mode="after")
+    def _names_the_plan(self) -> SessionEligibility:
+        binding = self.table
+        if self.plan not in (binding.column, binding.active_tab, *binding.where.values()):
+            raise ValueError("session eligibility must bind its exact plan")
+        if binding.cell_part:
+            raise ValueError("session eligibility checks the whole cell")
+        if self.plan_price:
+            price = self.plan_price
+            if (self.plan not in (price.column, price.active_tab, *price.where.values())
+                    or len(price.rows) != 1 or price.cell_part):
+                raise ValueError("session eligibility needs one whole price cell for its exact plan")
+        if any(word in self.value.casefold() for word in ("paid", "locked", "unavailable")):
+            raise ValueError("session eligibility cannot accept a paid or unavailable cell")
         return self
 
 
 class CatalogCondition(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["free-session", "paid", "specialist", "wallet"]
-    quote: str = Field(min_length=3, max_length=1200)
+    quote: str | None = Field(default=None, min_length=3, max_length=1200, exclude_if=lambda v: v is None)
+    note: str | None = Field(default=None, min_length=3, max_length=1200, exclude_if=lambda v: v is None)
+    reviewed_on: date | None = Field(default=None, exclude_if=lambda v: v is None)
     source: str | None = None
+    eligibility: SessionEligibility | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @field_validator('source')
     @classmethod
     def _condition_source(cls,value):
         return FreeAccess._source_is_https(value) if value else value
+
+    @model_validator(mode="after")
+    def _eligibility_belongs_to_a_free_offer(self) -> CatalogCondition:
+        if bool(self.quote) == bool(self.note):
+            raise ValueError("a catalog condition needs a checked quote or a dated manual note")
+        if self.note and (not self.source or not self.reviewed_on or self.kind == "free-session"):
+            raise ValueError("a manual condition needs its source and review date; it cannot establish a free session")
+        if self.eligibility and (self.kind != "free-session" or not self.source):
+            raise ValueError("session eligibility needs a free-session condition and its source")
+        return self
 
 
 class DatedSource(BaseModel):
@@ -734,9 +924,9 @@ class PageCatalog(BaseModel):
             if not all(b.quote for b in self.budgets):
                 raise ValueError('quoted budgets need evidence for every scope')
             for budget in self.budgets:
-                if budget.amount is not None and not re.search(rf'\b{budget.amount}\b', budget.quote):
+                if budget.amount is not None and not re.search(rf'\b{budget.amount}\b', budget.amount_quote or budget.quote):
                     raise ValueError('budget amount must match its evidence quote')
-                if budget.countries and any(not re.search(rf'\b{code}\b', budget.quote) for code in budget.countries):
+                if budget.countries and set(budget.countries) != quoted_codes(budget.quote):
                     raise ValueError('budget countries must match their evidence quote')
         if self.read.table_heading is None:
             if any(m.hours is not None for m in self.models):
@@ -780,11 +970,16 @@ class PageCatalog(BaseModel):
         return self
 
 
-def _access_ids_are_listed(model_ids: list[str], ignored_ids: list[str],
-                           conditions: dict[str, FreeAccess]) -> None:
-    unknown = conditions.keys() - set(model_ids) - set(ignored_ids)
-    if unknown:
-        raise ValueError(f"model_access names unlisted IDs: {', '.join(sorted(unknown))}")
+def _metadata_ids_are_listed(model_ids: list[str], ignored_ids: list[str],
+                             **fields: Mapping[str, object]) -> None:
+    listed = set(model_ids) | set(ignored_ids)
+    for field, values in fields.items():
+        if unknown := values.keys() - listed:
+            raise ValueError(f"{field} names unlisted IDs: {', '.join(sorted(unknown))}")
+
+
+OPENCODE_OUTPUT_FIELD = "max_completion_tokens"
+OPENCODE_LEGACY_OUTPUT_FIELD = "max_tokens"
 
 
 class ModelLimits(BaseModel):
@@ -797,7 +992,7 @@ class ModelLimits(BaseModel):
     @field_validator("source")
     @classmethod
     def _catalog_is_https(cls, value: str) -> str:
-        if urlparse(value).scheme != "https" or not urlparse(value).netloc:
+        if not valid_source_url(value):
             raise ValueError("model_limits source must be an https URL")
         return value
 
@@ -808,6 +1003,46 @@ class ModelLimits(BaseModel):
         return self
 
 
+class ModelBinding(BaseModel):
+    """A sourced identity for a gateway ID that omits its model's variant."""
+    model_config = ConfigDict(extra="forbid")
+    family: str
+    source: str
+    quote: str = Field(min_length=3, max_length=1200)
+    read: Literal["page", "catalog"] = Field(default="page", exclude_if=lambda v: v == "page")
+    target: str | None = Field(default=None, exclude_if=lambda v: v is None)
+
+    @field_validator("family", mode="before")
+    @classmethod
+    def _canonical_family(cls, value):
+        return ModelFamily._family_is_spelled_one_way(value)
+
+    @field_validator("family")
+    @classmethod
+    def _safe_family(cls, value):
+        return ModelFamily._family_is_a_page_name(value)
+
+    @field_validator("source", "target")
+    @classmethod
+    def _public_source(cls, value):
+        if value is not None and not valid_source_url(value):
+            raise ValueError("model binding needs a public https source or target")
+        return value
+
+    @field_validator("quote")
+    @classmethod
+    def _complete_quote(cls, value):
+        if len(value.strip()) < 3 or not any(c.isalnum() for c in value) or '...' in value or '…' in value:
+            raise ValueError("model binding needs one complete identity source fragment")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _link_is_on_a_page(self):
+        if self.target and self.read != "page":
+            raise ValueError("model binding target requires a page source")
+        return self
+
+
 class ApiInfo(BaseModel):
     """Connection details a developer pastes into an agent/SDK config."""
     base_url: str | None = None
@@ -815,8 +1050,12 @@ class ApiInfo(BaseModel):
     auth: str = "api-key"  # "api-key" | "none"
     openai_compatible: bool = True
     model_ids: list[str] = []  # exact callable ids for generated configs
+    model_bindings: dict[str, ModelBinding] = Field(default_factory=dict, exclude_if=lambda v: not v)
     model_access: dict[str, FreeAccess] = Field(default_factory=dict, exclude_if=lambda v: not v)
     model_limits: dict[str, ModelLimits] = Field(default_factory=dict, exclude_if=lambda v: not v)
+    # Chosen OpenCode request budgets; these do not assert vendor model limits.
+    opencode_output_tokens: dict[str, Annotated[int, Field(gt=0, strict=True)]] = Field(
+        default_factory=dict, exclude_if=lambda v: not v)
     # Zero-priced ids the catalog carries that are deliberately not in
     # model_ids — an image generator, a row whose own description says it was
     # removed, a lane the row does not track — with the reason in the commit
@@ -897,10 +1136,15 @@ class ApiInfo(BaseModel):
 
     @model_validator(mode="after")
     def _access_names_ids(self) -> ApiInfo:
-        _access_ids_are_listed(self.model_ids, self.ignored_ids, self.model_access)
-        unknown = self.model_limits.keys() - set(self.model_ids) - set(self.ignored_ids)
-        if unknown:
-            raise ValueError(f"model_limits names unlisted IDs: {', '.join(sorted(unknown))}")
+        _metadata_ids_are_listed(
+            self.model_ids, self.ignored_ids, model_access=self.model_access,
+            model_bindings=self.model_bindings, model_limits=self.model_limits,
+            opencode_output_tokens=self.opencode_output_tokens)
+        for mid, tokens in self.opencode_output_tokens.items():
+            if mid in self.model_limits and tokens > self.model_limits[mid].output_tokens:
+                raise ValueError("opencode_output_tokens exceeds the catalog output limit")
+        if self.opencode_output_tokens and (not self.base_url or not self.openai_compatible):
+            raise ValueError("opencode_output_tokens needs an OpenAI-compatible endpoint")
         return self
 
     @property
@@ -1025,7 +1269,7 @@ class ApiInfo(BaseModel):
         if value is None:
             return value
         value = value.rstrip("/")
-        if not value.startswith("https://"):
+        if not valid_source_url(value):
             raise ValueError("anthropic_base_url must be an https URL")
         if value.endswith("/messages"):
             raise ValueError(
@@ -1045,6 +1289,7 @@ class ClientLane(BaseModel):
     this list's history for the two-week bar. Nothing a reader pastes is
     written from them: there is nothing to connect to."""
     model_ids: list[str]
+    model_bindings: dict[str, ModelBinding] = Field(default_factory=dict, exclude_if=lambda v: not v)
     model_access: dict[str, FreeAccess] = Field(default_factory=dict, exclude_if=lambda v: not v)
     ignored_ids: list[str] = Field(default_factory=list, exclude_if=lambda v: not v)
     # Ids the lane carries that no Models-column family will name, on purpose —
@@ -1059,7 +1304,8 @@ class ClientLane(BaseModel):
 
     @model_validator(mode="after")
     def _access_names_ids(self) -> ClientLane:
-        _access_ids_are_listed(self.model_ids, self.ignored_ids, self.model_access)
+        _metadata_ids_are_listed(self.model_ids, self.ignored_ids,
+                                 model_access=self.model_access, model_bindings=self.model_bindings)
         return self
 
     @model_validator(mode="after")
@@ -1129,7 +1375,7 @@ class DataUse(BaseModel):
     @field_validator("url")
     @classmethod
     def _url_is_https(cls, value: str) -> str:
-        if not value.startswith("https://"):
+        if not valid_source_url(value):
             raise ValueError("data_use.url must be an https URL")
         return value
 
@@ -1171,7 +1417,7 @@ class Border(BaseModel):
     @field_validator("source")
     @classmethod
     def _source_is_https(cls, value: str) -> str:
-        if not value.startswith("https://"):
+        if not valid_source_url(value):
             raise ValueError("border.source must be an https URL")
         return value
 
@@ -1221,6 +1467,18 @@ class Border(BaseModel):
         return self
 
 
+class ArchiveReview(BaseModel):
+    checked_on: date
+    sources: list[str] = Field(min_length=1)
+
+    @field_validator('sources')
+    @classmethod
+    def _primary_sources(cls, values: list[str]) -> list[str]:
+        if any(not valid_source_url(value) for value in values):
+            raise ValueError('archive_review.sources needs HTTPS sources without credentials')
+        return list(dict.fromkeys(values))
+
+
 class Delisting(BaseModel):
     """A row a reviewer took off the list, kept in the registry as the record of
     what the list published: a row leaves through the Archive, with the day and
@@ -1251,6 +1509,7 @@ class Entry(BaseModel):
     source_urls: list[str] = []
     card_required: bool = False
     access: FreeAccess | None = None
+    remaining_free: RemainingFree | None = Field(default=None, exclude_if=lambda v: v is None)
     offering: str
     limits: str = ""
     quotas: list[UsageQuota] = Field(default_factory=list, exclude_if=lambda v: not v)
@@ -1270,6 +1529,7 @@ class Entry(BaseModel):
     last_verified: date
     retired_on: date | None = None  # vendor-announced shutdown; archives the row on that day
     delisted: Delisting | None = None  # taken off the list by a reviewer; archives the row
+    archive_review: ArchiveReview | None = None  # manual judgment and its current primary sources
     # The row that holds this same service, where two rows named one: the id of
     # the row that keeps the offer, the evidence and the history, and the reason
     # this one is listed nowhere a reader counts services.
@@ -1277,6 +1537,14 @@ class Entry(BaseModel):
     probe_failures: int = 0
     provisional: bool = False
     rank: int = 100  # sort key within a category: lower renders higher
+
+    @model_validator(mode="after")
+    def _archive_review_describes_an_archived_row(self) -> Entry:
+        if self.archive_review is not None:
+            archived_on = self.delisted.on if self.delisted else self.retired_on
+            if archived_on is None or self.archive_review.checked_on < archived_on:
+                raise ValueError('archive_review needs a row archived by that review date')
+        return self
 
     @model_validator(mode="after")
     def _quota_catalog_is_bound_to_the_lane(self) -> Entry:
@@ -1358,7 +1626,7 @@ class Entry(BaseModel):
         a month sits beside the models it prices at zero, and those are its
         column."""
         p = self.probe
-        reads_free = self.client_lane is not None or (
+        reads_free = bool(self.client_lane and self.client_lane.model_ids) or p.model_plan is not None or (
             p.type is ProbeType.API_MODELS
             and bool(p.require_zero_price or p.free_marker or p.lane or p.free_list))
         if reads_free and self.free_part in (FreePart.SUM, FreePart.UNNAMED):
@@ -1391,10 +1659,12 @@ class Entry(BaseModel):
 
     @model_validator(mode="after")
     def _limits_are_rechecked(self) -> Entry:
-        if self.api is not None and self.api.model_limits:
+        if self.api is not None and (self.api.model_limits or self.api.opencode_output_tokens):
             catalog = (self.probe.endpoint if self.probe.type is ProbeType.API_MODELS
                        else self.probe.catalog)
-            if not catalog or any(l.source != catalog for l in self.api.model_limits.values()):
+            if self.api.opencode_output_tokens and not catalog:
+                raise ValueError("api.opencode_output_tokens requires a catalog this probe rechecks")
+            if self.api.model_limits and (not catalog or any(l.source != catalog for l in self.api.model_limits.values())):
                 raise ValueError("api.model_limits source must be the catalog this probe rechecks")
         return self
 
@@ -1437,6 +1707,20 @@ class Entry(BaseModel):
             raise ValueError(
                 f"{self.id}: newcomers wait for the Models column of a row whose free part is "
                 "models — a sum or an unnamed part names no model to join it")
+        if any(n.table_name for n in self.newcomers) and not (self.probe.model_prices or self.probe.model_plan):
+            raise ValueError("newcomer table_name needs a bound model eligibility table")
+        return self
+
+    @model_validator(mode="after")
+    def _table_exclusions_do_not_hide_recorded_models(self) -> Entry:
+        if any(m.table_name for m in self.models) and not (self.probe.model_prices or self.probe.model_plan):
+            raise ValueError("model table_name needs a bound model eligibility table")
+        for excluded in self.probe.model_exclusions:
+            if any((_squash(m.table_name) == _squash(excluded.name) if m.table_name else
+                    names_family(m.family, _squash(excluded.name), _squash)) for m in self.models) or any(
+                    (_squash(n.table_name) == _squash(excluded.name) if n.table_name else
+                     names_family(n.family, _squash(excluded.name), _squash)) for n in self.newcomers):
+                raise ValueError("model_exclusions cannot hide a listed family or newcomer")
         return self
 
     @model_validator(mode="after")
@@ -1444,8 +1728,9 @@ class Entry(BaseModel):
         """`client_lane` records a lane no API serves, and its ids are held to what
         the probe reads, in both directions — so the probe must be able to tell
         the free lane from the rest of what it reads: the key the vendor lists
-        it under (`probe.lane`), or prices it reads at zero. On a page, or on a
-        catalog it cannot read free off, the list would be checked by nothing.
+        it under (`probe.lane`), prices it reads at zero, or a page-based identity
+        and independent allowance for every ID. An unbound page or unpriced
+        catalog would leave the list checked by nothing.
         And a lane an API serves keeps its ids in `api.model_ids`, which the
         configs are written from: two lists of one lane drift apart."""
         if self.client_lane is None:
@@ -1455,6 +1740,20 @@ class Entry(BaseModel):
                 f"{self.id}: a lane an API serves keeps its ids in api.model_ids — "
                 "client_lane is for a lane served only inside the vendor's own client")
         probe = self.probe
+        if probe.type is ProbeType.PAGE_KEYWORDS:
+            # A client promotion can be documented in prose rather than a JSON
+            # picker. Identity and the independent allowance must both be read
+            # back for each ID; a general signup wallet cannot vouch for it.
+            lane = self.client_lane
+            for mid in lane.model_ids:
+                binding = lane.model_bindings.get(mid)
+                if not binding or binding.read != "page" or not any(
+                        q.model_ids == [mid] and q.scope.endswith("-model")
+                        and q.source == binding.source
+                        for q in self.quotas):
+                    raise ValueError("a page client lane needs per-model identity and allowance "
+                                     "sources for every listed ID")
+            return self
         if probe.type is not ProbeType.API_MODELS or not (probe.lane or probe.require_zero_price):
             raise ValueError(
                 f"{self.id}: client_lane.model_ids are held to the lane an api-models probe "
@@ -1518,6 +1817,16 @@ def live_families(entry: Entry) -> list[str]:
     return [m.family for m in entry.models if m.superseded_by is None]
 
 
+def entry_id_family(entry: Entry, model_id: str, families: Iterable[str] | None = None) -> str | None:
+    """Resolve a row's exact ID before applying the common name matcher."""
+    names = list(families) if families is not None else live_families(entry)
+    lane = entry.api or entry.client_lane
+    binding = lane.model_bindings.get(model_id) if lane else None
+    if binding is not None:
+        return binding.family if binding.family in names else None
+    return id_family(names, model_id)
+
+
 def id_access(entry: Entry, model_id: str) -> FreeAccess | None:
     lane = entry.api or entry.client_lane
     scoped = (lane.model_access.get(model_id) if lane else
@@ -1535,7 +1844,7 @@ def id_access(entry: Entry, model_id: str) -> FreeAccess | None:
 def family_access(entry: Entry, family: str) -> FreeAccess | None:
     """The least restrictive surviving ID: a free variant keeps a family free."""
     lane = lane_ids(entry)
-    ids = [i for i in lane.model_ids if id_family(live_families(entry), i) == family] if lane else []
+    ids = [i for i in lane.model_ids if entry_id_family(entry, i) == family] if lane else []
     if entry.page_catalog:
         ids = [m.name for m in entry.page_catalog.models if m.model and m.model.family == family
                and entry.page_catalog.independently_free(m)]
@@ -1612,8 +1921,8 @@ def expire_entries(entries: list[Entry], now: datetime) -> list[Entry]:
             continue
         surviving = [i for i in block.model_ids if i not in expired]
         families = live_families(e)
-        affected = {id_family(families, i) for i in expired}
-        kept = {id_family(families, i) for i in surviving}
+        affected = {entry_id_family(e, i, families) for i in expired}
+        kept = {entry_id_family(e, i, families) for i in surviving}
         updates = {"model_ids": surviving,
                    "ignored_ids": list(dict.fromkeys([*block.ignored_ids, *sorted(expired)])),
                    "no_family_ids": [i for i in block.no_family_ids if i not in expired],
@@ -1626,8 +1935,35 @@ def expire_entries(entries: list[Entry], now: datetime) -> list[Entry]:
             "api" if e.api else "client_lane": current,
             "models": [m for m in e.models if m.family not in affected or m.family in kept]}
         if not surviving and e.free_part is FreePart.MODELS:
-            ended_on = max(id_access(e, i).until for i in expired).astimezone(timezone.utc).date()
-            entry_updates["retired_on"] = min(e.retired_on, ended_on) if e.retired_on else ended_on
+            if e.remaining_free:
+                # The new prose probe cannot recheck undated price-catalog
+                # exclusions. Retain dated promotion evidence and its metadata;
+                # prior specialist decisions remain in the published Git history.
+                retained = {i for i in current.ignored_ids
+                            if (a := current.model_access.get(i)) and a.until}
+                metadata = {name: {i: value for i, value in getattr(current, name).items()
+                                   if i in retained}
+                            for name in ("model_access", "model_bindings", "model_limits",
+                                         "opencode_output_tokens") if hasattr(current, name)}
+                current = current.model_copy(update={
+                    "ignored_ids": [i for i in current.ignored_ids if i in retained], **metadata})
+                entry_updates["api" if e.api else "client_lane"] = current
+                entry_updates["quotas"] = [q for q in e.quotas
+                                          if not q.model_ids or set(q.model_ids) & retained]
+                entry_updates["free_part"] = e.remaining_free.free_part
+                entry_updates["access"] = e.remaining_free.access
+                entry_updates["offering"] = "A separately documented free allowance continues after the named model promotions"
+                entry_updates["limits"] = (e.remaining_free.quote +
+                    " Current model IDs and account eligibility must be confirmed with the provider.")
+                current.note = "The named model promotions have ended; check the continuing offer's current models and eligibility in your account."
+                entry_updates["probe"] = Probe(
+                    type=ProbeType.PAGE_KEYWORDS, endpoint=e.remaining_free.source,
+                    keywords=[e.remaining_free.quote],
+                    catalog=e.probe.endpoint if e.api and e.probe.type is ProbeType.API_MODELS
+                    else e.probe.catalog)
+            else:
+                ended_on = max(id_access(e, i).until for i in expired).astimezone(timezone.utc).date()
+                entry_updates["retired_on"] = min(e.retired_on, ended_on) if e.retired_on else ended_on
         out.append(e.model_copy(update=entry_updates))
     return out
 

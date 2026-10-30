@@ -11,6 +11,86 @@ BASE = {'id':'vendor','name':'Vendor','url':'https://vendor.example','category':
 QUOTA = {'amount':200,'unit':'requests','period':'hour','scope':'ip',
          'source':'https://vendor.example/limits','quote':'200 requests per hour per IP'}
 
+
+def test_conflicting_published_ceilings_are_distinct_from_an_unpublished_allowance():
+    from freetier_radar.quotas import UsageQuota, quota_words
+    quota = UsageQuota.model_validate({**QUOTA, 'amount': None, 'period': 'concurrent',
+                                      'state': 'disputed', 'scope': 'key', 'reviewed_on': '2026-10-28'})
+    text = quota_words(quota)
+    assert 'published sources disagree' in text
+    assert 'not published' not in text
+
+@pytest.mark.parametrize('phrase', ['günde 500.000 token', 'günde 500 bin token'])
+@pytest.mark.parametrize('changed', [False, True])
+@respx.mock
+async def test_turkish_thousand_quota_from_http_table(phrase, changed):
+    q={**QUOTA,'amount':500_000,'unit':'tokens','period':'day','scope':'account-model',
+       'read':'table','quote':'Daily free model allowance',
+       'table':{'headers':['Model','Daily tokens'],'column':'Daily tokens','rows':['coding-model']}}
+    e=Entry.model_validate({**BASE,'quotas':[q]})
+    respx.get(e.probe.endpoint).respond(200,text='Recurring free quota for chat')
+    cell=phrase.replace('500','400') if changed else phrase
+    body=('<p>Daily free model allowance</p><table><tr><th>Model</th><th>Daily tokens</th></tr>'
+          f'<tr><td>coding-model</td><td>{cell}</td></tr></table>')
+    respx.get(q['source']).respond(200,text=body)
+    async with httpx.AsyncClient() as client:
+        result=await probe_entry(client,e,attempts=1,backoff=0)
+    assert result.status is (ProbeStatus.STALE_IDS if changed else ProbeStatus.PASS)
+
+@pytest.mark.parametrize(('phrase','amount'), [
+    ('Her hesap için günde 500.000 token',500_000),
+    ('Kişi başı günlük 1.500.000 token',1_500_000),
+    ('kişi başı günde 500 bin token',500_000),
+    ('günde 1.5 bin token',1_500),
+])
+def test_turkish_thousand_quote_keeps_its_numeric_amount(phrase, amount):
+    from freetier_radar.quotas import UsageQuota
+    q=UsageQuota.model_validate({**QUOTA,'amount':amount,'unit':'tokens','period':'day',
+                                'quote':phrase,'value_phrase':phrase})
+    assert q.amount==amount
+
+@pytest.mark.parametrize(('phrase','amount'), [
+    ('günde 500.000 token',500),
+    ('500 billion tokens per day',500_000),
+    ('500.000 tokens per day',500_000),
+    ('günde 0.001 tokens',1),
+])
+def test_turkish_scaling_does_not_reinterpret_other_numbers(phrase, amount):
+    from pydantic import ValidationError
+    from freetier_radar.quotas import UsageQuota
+    with pytest.raises(ValidationError):
+        UsageQuota.model_validate({**QUOTA,'amount':amount,'unit':'tokens','period':'day',
+                                   'quote':phrase,'value_phrase':phrase})
+
+def test_turkish_context_preserves_fractional_prices():
+    from freetier_radar.quotas import UsageQuota
+    q=UsageQuota.model_validate({**QUOTA,'amount':0.001,'unit':'USD','period':'day',
+                                'quote':'günde $0.001','value_phrase':'günde $0.001'})
+    assert q.amount==0.001
+
+@pytest.mark.parametrize(('phrase','amount','scope'), [
+    ('Her hesap günde 5 milyon token', 5_000_000, 'account'),
+    ('kişi başı günde 10 milyon token', 10_000_000, 'person'),
+])
+@pytest.mark.parametrize('changed', [False, True])
+@respx.mock
+async def test_turkish_million_daily_tokens_bind_to_current_http_source(phrase, amount, scope, changed):
+    # LLMTR's free MiniMax/Vast pages publish Turkish numeric caps (2026-10-22):
+    # https://llmtr.com/models/minimax/minimax-m3.1-flash-free
+    q={**QUOTA,'amount':amount,'unit':'tokens','period':'day','scope':scope,
+       'quote':phrase,'value_phrase':phrase}
+    e=Entry.model_validate({**BASE,'quotas':[q]})
+    respx.get(e.probe.endpoint).respond(200,text='Recurring free quota for chat')
+    body=phrase.replace(str(amount//1_000_000), '4') if changed else phrase
+    respx.get(q['source']).respond(200,text=body)
+    async with httpx.AsyncClient() as client:
+        result=await probe_entry(client,e,attempts=1,backoff=0)
+    assert result.status is (ProbeStatus.STALE_IDS if changed else ProbeStatus.PASS)
+    if scope=='person':
+        from freetier_radar.quotas import quota_words
+        assert 'per person' in quota_words(e.quotas[0])
+        assert 'per account' not in quota_words(e.quotas[0])
+
 @respx.mock
 async def test_a_live_offer_does_not_hide_a_changed_numeric_quota():
     e=Entry.model_validate({**BASE,'quotas':[QUOTA]})
@@ -131,6 +211,20 @@ def test_concurrent_work_is_not_a_recurring_request_budget():
     assert quota_words(q)=='3 tasks at once per account'
 
 
+@pytest.mark.parametrize('reset', ['Unused allowance does not carry over.', 'Unused allowance does not carry over'])
+@pytest.mark.parametrize('model_bound', [False, True])
+def test_model_scope_precedes_the_separate_reset_sentence(reset, model_bound):
+    from freetier_radar.quotas import quota_summary
+    quota = {**QUOTA, 'reset': reset, 'quote': QUOTA['quote'] + '. ' + reset}
+    if model_bound:
+        quota['model_ids'] = ['coding-model']
+    entry = Entry.model_validate({**BASE, 'quotas': [quota],
+        'api': {'base_url': 'https://api.vendor.example/v1', 'model_ids': ['coding-model']}})
+    expected = '200 requests/hour per IP' + ('; for `coding-model`' if model_bound else '')
+    assert quota_summary(entry) == expected + '. ' + reset
+    assert entry.quotas[0].reset == reset
+
+
 def test_explicit_unmetered_usage_stays_distinct_from_an_unpublished_amount():
     from freetier_radar.quotas import UsageQuota,quota_words
     q=UsageQuota.model_validate({**QUOTA,'amount':None,'unit':'completions','period':None,
@@ -230,6 +324,44 @@ def test_one_time_grant_cannot_look_like_a_recurring_allowance():
     quota=UsageQuota.model_validate({**QUOTA,'amount':10,'unit':'USD',
         'period':'one-time','scope':'account','quote':'$10 signup credit'})
     assert '$10 once per account' == quota_words(quota)
+
+
+@pytest.mark.parametrize('amount,unit,expected', [
+    (1, 'requests', '1 request/hour per IP'),
+    (2, 'requests', '2 requests/hour per IP'),
+    (0.5, 'requests', '0.5 requests/hour per IP'),
+    (1, 'credits', '1 credit/hour per IP'),
+    (2, 'credits', '2 credits/hour per IP'),
+    (1, 'input tokens', '1 input token/hour per IP'),
+    (2, 'input tokens', '2 input tokens/hour per IP'),
+    (1, 'one-hour sessions', '1 one-hour session per hour per IP'),
+    (2, 'one-hour sessions', '2 one-hour sessions per hour per IP'),
+    (1, 'Hypercredits', '1 Hypercredit/hour per IP'),
+    (1, 'USD', '$1/hour per IP'),
+    (1, 'CUH', '1 CUH/hour per IP'),
+])
+def test_quota_display_inflects_counts_without_changing_the_recorded_unit(amount, unit, expected):
+    from freetier_radar.quotas import UsageQuota, quota_words
+    quota = UsageQuota.model_validate({**QUOTA, 'amount': amount, 'unit': unit,
+                                      'quote': f'{amount} {unit} per hour per IP'})
+    assert quota_words(quota) == expected
+    assert quota.model_dump()['unit'] == unit
+
+
+def test_singular_quota_reaches_public_surfaces_from_the_same_canonical_record():
+    from datetime import date
+    from freetier_radar.render import build_index, build_provider_page, build_site_context
+    entry = Entry.model_validate({**BASE, 'quotas':[
+        {**QUOTA, 'amount':1, 'quote':'1 request per hour per IP'}]})
+    today = date(2026, 10, 5)
+    index = build_index([entry], today)['entries'][0]
+    assert index['quotas'][0]['unit'] == 'requests'
+    site = next(row for section in build_site_context([entry], today)['sections']
+                for row in section['rows'] if row['id'] == entry.id)
+    for text in (index['limits'], build_provider_page(entry, [], today),
+                 str(site['limits'])):
+        assert '1 request/hour per IP' in text
+        assert '1 requests' not in text
 
 
 @respx.mock

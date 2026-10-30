@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import unicodedata
 import tempfile
 import textwrap
@@ -18,14 +19,15 @@ from .countries import COUNTRIES, country_name
 from .history import (Event, EventType, archive_reason, load_history, pending_changes,
                       record_changes, refuse_deleted_rows)
 from .models import (ARCHIVE_AFTER_DAYS, ARCHIVE_AFTER_FAILURES, CHECKED_PAGE,
-                     CODEX_LITELLM_PROFILE, PROBE_WEEKDAYS, PROVIDERS_INDEX_PAGE,
+                     CODEX_LITELLM_PROFILE, OPENCODE_OUTPUT_FIELD, OPENCODE_LEGACY_OUTPUT_FIELD,
+                     PROBE_WEEKDAYS, PROVIDERS_INDEX_PAGE,
                      WATCH_RECHECK_DAYS, Category, Entry, FreePart,
                      ModelFamily, Notice, ProbeType, Tier, Watched, domain_of,
-                     folded_into, id_family, is_archived,
+                     folded_into, entry_id_family, is_archived,
                      is_archived_for_good, is_blocked, is_watch_current, lane_ids, live_families,
                      load_blocklist, load_registry, load_watchlist, probe_frequency,
                      access_words, expire_entries, family_access, id_access, requires_payment,
-                     save_registry, preferred_ids, family_names)
+                     save_registry, preferred_ids)
 # The promotion day is the probe's, and the pages say how far off it is.
 from .prober import PROVISIONAL_PROMOTE_DAYS
 # The bars a family's score must clear to be called frontier or strong, which
@@ -42,6 +44,7 @@ from .page_catalog import catalog_index, catalog_words, family_condition, limits
 # CONTRIBUTING.md prints.
 from .gate import committed_log
 from .layout import MAP, markdown_table
+from .page_dates import PageDates
 
 __all__ = ["FEED_ENTRIES", "FEED_URL",
            "README_CHANGES", "README_MODELS", "README_PICKS", "README_STARTERS",
@@ -302,6 +305,7 @@ DATA_USE_WORDS = {
     "yes": "What you send may be used to train or improve models.",
     "opt-out": "What you send may be used to train or improve models unless you turn that off.",
     "no": "What you send is not used to train models.",
+    "unknown": "Training policy not established.",
 }
 
 
@@ -710,12 +714,11 @@ def _chart(strong: list[dict], scores: dict | None) -> Chart | None:
 
 
 def readme_pictures(hero: Hero, chart: Chart | None = None) -> dict[str, str]:
-    """Every picture the README names, by its path beside the README, in each
+    """The README pictures and their retained URLs, in each
     of its VARIANTS: the wide pair one palette each, the narrow one with both —
     and the site's mark, the hero's radar alone (SITE_RADAR)."""
-    drawers = {"hero": lambda palette, narrow: hero_svg(hero, palette, narrow=narrow)}
-    if chart is not None:
-        drawers["strong"] = lambda palette, narrow: chart_svg(chart, palette, narrow=narrow)
+    drawers = {"hero": lambda palette, narrow: hero_svg(hero, palette, narrow=narrow),
+               "strong": lambda palette, narrow: chart_svg(chart, palette, narrow=narrow)}
     palettes = {"light": (LIGHT, False), "dark": (DARK, False), "narrow": (None, True)}
     pictures = {f"{README_PICTURES}/{name}-{variant}.svg": draw(*palettes[variant])
                 for name, draw in drawers.items() for variant in VARIANTS}
@@ -784,17 +787,19 @@ def _starter(e: Entry) -> dict:
     families = sorted((f for f in live_families(e) if not requires_payment(e, f)),
                       key=lambda f: _TIER_FIRST.get(tiers.get(f), len(_TIER_FIRST)))
     return {"name": e.name, "url": e.url, "families": families[:README_STARTER_MODELS],
+            "access_labels": {f: _access_description(e, f) for f in families[:README_STARTER_MODELS]},
             "more": max(0, len(families) - README_STARTER_MODELS),
             "page": provider_page_url(e.id)}
 
 
-def _codex_command(e: Entry) -> str:
+def _codex_command(e: Entry, model: str | None = None) -> str:
     """How a reader starts Codex CLI on a row's own profile."""
-    return f"codex -p {e.id}"
+    return f"codex -p {e.id}" + (f" -m {shlex.quote(model)}" if model else "")
 
 
 def _pick(e: Entry, families: list[str] | None = None) -> dict:
-    return {"name": e.name, "url": e.url, "families": families or []}
+    return {"name": e.name, "url": e.url, "families": families or [],
+            "access_labels": {f: _access_description(e, f) for f in families or []}}
 
 
 def _picks(active: list[Entry], connectable: list[Entry]) -> dict[str, list[dict]]:
@@ -1210,6 +1215,17 @@ def _index_countries() -> list[dict]:
     return sorted(named, key=lambda c: _country_key(c["name"]))
 
 
+def _index_access_labels(e: Entry) -> dict:
+    lane = e.api or e.client_lane
+    if not (e.access or e.page_catalog or (lane and lane.model_access)):
+        return {}
+    return {"access_labels": {
+        "offer": access_words(e.access, compact=True),
+        "models": {f: _access_description(e, f, compact=True) for f in live_families(e)},
+        "ids": {mid: access_words(id_access(e, mid)) for mid in (lane.model_ids if lane else [])},
+    }}
+
+
 def build_index(entries: list[Entry], today: date,
                 watchlist: list[Watched] | None = None,
                 pages: set[str] | None = None) -> dict:
@@ -1218,15 +1234,16 @@ def build_index(entries: list[Entry], today: date,
         "generated": today.isoformat(),
         "source": REPO_URL,
         "feed": FEED_URL,
+        "data_use_words": dict(DATA_USE_WORDS),
+        "search_config": _search_config(entries),
         "entries": [
             {**e.model_dump(mode="json", exclude_none=True), "limits": limits_text(e),
+             "no_account": needs_no_account(e),
              **({"page_catalog": catalog_index(e.page_catalog)} if e.page_catalog else {}),
              **({"quotas": structured_quotas(e)} if structured_quotas(e) else {}),
              "archived": is_archived(e, today),
-             **({"access_labels": {"offer": access_words(e.access, compact=True),
-                                   "models": {f: _access_description(e, f, compact=True)
-                                              for f in live_families(e)}}}
-                if e.access or e.page_catalog or ((lane := e.api or e.client_lane) and lane.model_access) else {}),
+             "search": _search_record(e, archive_reason(e, today) if is_archived(e, today) else ""),
+             **_index_access_labels(e),
              **({"archived_because": archive_reason(e, today)} if is_archived(e, today) else {}),
              "page": provider_page_url(e.id)}
             for e in entries
@@ -1234,6 +1251,8 @@ def build_index(entries: list[Entry], today: date,
         # Every country a border can name, for a page that asks where the reader
         # is (browse.html's picker): the codes the borders are recorded in.
         "countries": _index_countries(),
+        "client_configs": {client: [row["id"] for row in rows]
+                           for client, rows in _site_client_configs(entries, today).items()},
         # Additive, like the watchlist: which rows serve each model free, the
         # question a machine asks of this list as often as a reader does, and
         # the page a model has where it has one.
@@ -1288,13 +1307,15 @@ SEARCH_FILTERS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 )
 
 
-def _search_config() -> dict:
+def _search_config(entries: list[Entry] | None = None) -> dict:
     """The search's filters, in the page as JSON: the sections the nav names and
     the four row answers, each with the words that select it."""
     return {
+        "names": list(dict.fromkeys(e.name for e in entries or [])),
         "sections": [{"id": cat.value, "label": SITE_NAV_LABELS[cat],
                       "emoji": CATEGORY_TITLES[cat].partition(" ")[0],
-                      "words": list(SEARCH_SECTION_WORDS[cat])} for cat in CATEGORY_TITLES],
+                      "words": list(dict.fromkeys((cat.value, *SEARCH_SECTION_WORDS[cat])))}
+                     for cat in CATEGORY_TITLES],
         "filters": [{"id": fid, "label": label, "words": list(words)}
                     for fid, label, words in SEARCH_FILTERS],
     }
@@ -1324,6 +1345,29 @@ def _site_fold(text: str) -> dict[str, str]:
     return {"text": text, "teaser": f"{_cut(text, README_LIMITS_TEASER)} …"}
 
 
+def _search_record(e: Entry, reason: str = "") -> dict:
+    """The same complete facts and filter answers for both browser searches.
+
+    Collapsing a cell only changes its presentation, never this input. Callable
+    IDs remain separate from the qualified families a result may label free.
+    """
+    families = live_families(e)
+    lane = lane_ids(e)
+    return {
+        "name": e.name, "models": families,
+        "ids": lane.model_ids if lane else [],
+        "what": e.offering, "limits": limits_text(e), "why": reason,
+        "access": access_words(e.access, compact=True),
+        "modelAccess": {f: _access_description(e, f, compact=True) for f in families},
+        "section": {"id": e.category.value},
+        "flags": [flag for flag, on in (
+            ("nocard", not e.card_required), ("nokey", needs_no_account(e)),
+            ("claude", bool(e.api and e.api.anthropic_base_url)),
+            ("strong", any(m.superseded_by is None and m.tier in (Tier.FRONTIER, Tier.STRONG)
+                           for m in e.models))) if on],
+    }
+
+
 def _site_row(e: Entry) -> dict:
     """A row of a section table: the facts, with every judgement already made.
 
@@ -1337,6 +1381,7 @@ def _site_row(e: Entry) -> dict:
     chips = [{"family": m.family, "tier": m.tier.value if m.tier else "",
               "access": _access_description(e, m.family, compact=True)} for m in families]
     api = e.api
+    search = _search_record(e)
     return {
         "id": e.id,
         "name": e.name,
@@ -1358,11 +1403,8 @@ def _site_row(e: Entry) -> dict:
         "frontier": any(m.tier is Tier.FRONTIER for m in families),
         # The same answers as the words the page's search filters on, one per
         # filter it offers (SEARCH_FILTERS) — held to them by a test.
-        "flags": [flag for flag, on in (
-            ("nocard", not e.card_required),
-            ("nokey", needs_no_account(e)),
-            ("claude", bool(api and api.anthropic_base_url)),
-            ("strong", any(m.tier in (Tier.FRONTIER, Tier.STRONG) for m in families))) if on],
+        "flags": search["flags"],
+        "search": search,
         # A row whose published lane is known not to work says so where it is
         # read, not only on its own page, before a reader copies the base URL.
         "notice": _notice_data(api.notice if api else None),
@@ -1401,16 +1443,95 @@ def _site_connections(connectable: list[Entry]) -> list[dict]:
             "public_key": e.api.public_key or "",
             "key_url": e.api.key_url or "", "asks": asks,
             "note": _site_fold(e.api.note) if e.api.note else None,
-            "notice": ({"since": e.api.notice.since.isoformat(), "text": e.api.notice.text,
-                        "url": e.api.notice.url or ""} if e.api.notice else None),
+            "notice": _notice_data(e.api.notice),
         })
     return rows
+
+
+def _site_client_configs(entries: list[Entry], today: date) -> dict[str, list[dict]]:
+    """Choose only routes represented in the generated client files."""
+    from .quotas import quota_summary
+    opencode = build_opencode_config(entries, today)["provider"]
+    deployments = {m["model_name"] for m in build_litellm_config(entries, today)["model_list"]}
+    direct = {e.id for e in _codex_direct(entries, today)}
+    anthropic = {e.id for e in _anthropic_ready(entries, today)}
+    clients = {name: [] for name in ("opencode", "codex", "claude", "litellm")}
+    for e in _connectable(entries, today):
+        if not e.api.model_ids:
+            continue
+        preferred = preferred_ids(e)
+        proxied = [i for i in preferred if f"{e.id}/{i}" in deployments]
+        common = {
+            "id": e.id, "name": e.name, "page": provider_page_url(e.id),
+            "key_url": e.api.key_url or "", "env_var": env_var(e.id),
+            "keyless": e.api.key_kind == "none", "public_key": e.api.public_key or "",
+            "card": _card_words(e),
+            "limits": " ".join(filter(None, (quota_summary(e), e.limits))), "note": e.api.note,
+            "notice": e.api.notice.text if e.api.notice else "",
+        }
+        if e.id in opencode:
+            clients["opencode"].append({**common, "files": ["configs/opencode.json"],
+                "setup": "Save opencode.json in your project. Append your task to the launch command.",
+                "route": "Direct"})
+        if e.id in direct:
+            clients["codex"].append({**common, "files": [codex_profile_path(e)],
+                "route": "Direct",
+                "setup": f"Copy the profile to ~/.codex/. Requires Codex CLI {CODEX_SINCE} or later."})
+        elif proxied:
+            clients["codex"].append({**common, "files": ["configs/litellm.yaml", CODEX_LITELLM_PATH],
+                "proxy_command": litellm_command(), "route": "Via LiteLLM",
+                "setup": f"Save litellm.yaml under configs/, copy the profile to ~/.codex/, then start the proxy. Requires Codex CLI {CODEX_SINCE} and LiteLLM {LITELLM_BRIDGE_SINCE} or later."})
+        if e.id in anthropic:
+            clients["claude"].append({**common, "files": ["configs/claude-code.sh"],
+                "route": "Direct",
+                "setup": "Save the file under configs/ and run source configs/claude-code.sh in bash or zsh."})
+        if proxied:
+            clients["litellm"].append({**common, "files": ["configs/litellm.yaml"],
+                "route": "Local proxy",
+                "setup": f"Save the file under configs/. Point your client at {LITELLM_LOCAL_URL} and choose this model."})
+        for client, rows in clients.items():
+            if not rows or rows[-1]["id"] != e.id:
+                continue
+            row = rows[-1]
+            if client == "opencode":
+                ids = [i for i in preferred if i in opencode[e.id]["models"]]
+            elif client == "claude" or (client == "codex" and row["route"] == "Direct"):
+                ids = preferred
+            else:
+                ids = proxied
+            row["models"] = [_client_model(e, i, client, row["route"], i == preferred[0]) for i in ids]
+            row.update({key: value for key, value in row["models"][0].items() if key != "id"})
+    return clients
+
+
+def _client_model(e: Entry, mid: str, client: str, route: str, default: bool) -> dict:
+    """A callable model's command and conditions, from the same generated route.
+
+    Commands are assembled here, with shell quoting, rather than patched in the
+    browser. Shared limits remain on the provider; access belongs to this ID.
+    """
+    deployment = f"{e.id}/{mid}"
+    model = deployment if client in ("opencode", "litellm") or route == "Via LiteLLM" else mid
+    if client == "opencode":
+        # Shared by the v1/v2 CLI; v2.1.3 removed --model from the bare TUI
+        # command. https://opencode.ai/v2/docs/models, checked 2026-10-24.
+        command = f"opencode run --model {shlex.quote(model)}"
+    elif client == "codex":
+        command = (_codex_command(e, None if default else mid) if route == "Direct" else
+                   f"codex -p {CODEX_LITELLM_PROFILE} -m {shlex.quote(model)}")
+    elif client == "claude":
+        command = f"claude-{e.id}" + ("" if default else f" --model {shlex.quote(model)}")
+    else:
+        command = litellm_command()
+    return {"id": mid, "model": model, "command": command,
+            "access": access_words(id_access(e, mid))}
 
 
 def _site_archived_rows(entries: list[Entry], today: date) -> list[dict]:
     gone = _archive(entries, today)
     return [{"id": e.id, "name": e.name, "page": provider_page_url(e.id),
-             "when": _departure(e).isoformat(), "why": _site_fold(archive_reason(e, today))}
+             "when": _departure(e).isoformat(), "why": _site_fold(archive_reason(e, today)),
+             "search": _search_record(e, archive_reason(e, today))}
             for e in gone]
 
 
@@ -1495,13 +1616,14 @@ def build_site_context(entries: list[Entry], today: date,
         "sections": _site_sections(active),
         "jsonld": _site_jsonld(facts["active_count"], facts["family_count"], today),
         "connections": _site_connections(_connectable(entries, today)),
+        "client_configs": _script_json(_site_client_configs(entries, today)),
         "archived": _site_archived_rows(entries, today),
         "changes": _site_changes(history or [], entries, today),
         "providers_url": providers_index_url(),
         "radar": SITE_RADAR,
         # Serialised here, like the structured data: autoescaping would turn a
         # JSON document's quotes into entities.
-        "search_config": _script_json(_search_config()),
+        "search_config": _script_json(_search_config(entries)),
     }
 
 
@@ -1654,6 +1776,12 @@ def build_opencode_config(entries: list[Entry], today: date) -> dict:
         for mid, limits in e.api.model_limits.items():
             if mid in models:
                 models[mid]["limit"] = {"context": limits.context_tokens, "output": limits.output_tokens}
+        # OpenCode 2.0.28 forwards compatible-model options as request body fields.
+        # https://github.com/anomalyco/opencode/blob/v2.0.28/packages/core/src/v1/config/provider-options.ts
+        # Checked 2026-10-15 with the real client; conformance checks the emitted budget.
+        for mid, tokens in e.api.opencode_output_tokens.items():
+            if mid in models:
+                models[mid]["options"] = {OPENCODE_OUTPUT_FIELD: tokens, OPENCODE_LEGACY_OUTPUT_FIELD: tokens}
         providers[e.id] = {
             "npm": "@ai-sdk/openai-compatible",
             "name": e.name,
@@ -1713,9 +1841,9 @@ def _litellm_ids(e: Entry) -> list[str]:
 
 
 def _tier_of_id(e: Entry, model_id: str) -> Tier | None:
-    """The measured tier of the family an id belongs to (`id_family`:
+    """The measured tier of the family an id belongs to (`entry_id_family`:
     zai-org/GLM-5.3-Flash is glm-5.3-flash, not glm-5.3)."""
-    family = id_family(live_families(e), model_id)
+    family = entry_id_family(e, model_id)
     return next((m.tier for m in e.models if m.family == family and m.superseded_by is None), None)
 
 
@@ -1804,7 +1932,7 @@ def _litellm_groups_note(groups: list[str]) -> str:
     """The header's paragraph on the groups, for the ones the file defines."""
     if not groups:
         return ""
-    how = (" pools every lane of that tier" if len(groups) == 1 else
+    how = (" pools its eligible lanes" if len(groups) == 1 else
            " pool every lane of that tier, and a call falls back down that order when a "
            "lane runs out of quota or has no key set here")
     sentence = (f"Or ask for a group instead of a model: {series(groups, 'or')}{how} — set only "
@@ -2150,14 +2278,12 @@ def _page_description(e: Entry) -> str:
 
 
 def _last_modified(e: Entry, events: list[Event]) -> date:
-    """The newest day a row's page changed for a reader: the last probe that
-    passed it, the day its border was read or its newest history line,
-    whichever came last, as a UTC day.
+    """Dated provenance for a page builder before PageDates reconciles content.
 
-    It goes in the page's front matter as `last_modified_at`, which
-    jekyll-sitemap writes as the URL's <lastmod> and jekyll-seo-tag as the
-    page's `dateModified`, for a crawler deciding what to read again. The
-    footer's render date is not it: a render changes no fact on the page."""
+    A limits or source correction need not produce a history event. The shared
+    page writer records its actual content date separately from these earned
+    verification dates, which this function never changes.
+    """
     # A border read is a fact the page gained that day, with no history line.
     read = [e.border.on] if e.border is not None else []
     return max([e.last_verified, *read, *(ev.ts.astimezone(timezone.utc).date()
@@ -2183,7 +2309,7 @@ _ASK_PAGE = {"user-agent": ("- User-Agent: your client's own name and version, s
                                 "out")}
 
 
-def _connect_lines(e: Entry, ids: list[str]) -> list[str]:
+def _connect_lines(e: Entry, ids: list[str], *, include_waiting: bool = False) -> list[str]:
     """How to reach a row, a list item a fact: the base URL, the key, what every
     request carries, the Anthropic route, Codex's profile and the ids — every id
     the row lists on the row's own page, one model's ids on that model's page.
@@ -2195,6 +2321,8 @@ def _connect_lines(e: Entry, ids: list[str]) -> list[str]:
         out = ["- No API endpoint to paste: this row is a tool you install or sign in to."]
         if e.client_lane is not None and ids:
             out.append(f"- In {e.name}'s own model list: " + ", ".join(f"`{i}`" for i in ids))
+        elif include_waiting and (choices := [n.table_name or n.family for n in e.newcomers]):
+            out.append(f"- In {e.name}'s own model list: " + ", ".join(f"`{name}`" for name in choices))
         return out
     out = [f"- Base URL: `{api.base_url}`" + ("" if api.openai_compatible else " (not OpenAI-shaped)")]
     if api.key_kind == "none":
@@ -2213,8 +2341,10 @@ def _connect_lines(e: Entry, ids: list[str]) -> list[str]:
                    f"`{api.anthropic_base_url}`")
     if codex_ready(e):
         path = codex_profile_path(e)
+        chosen = next((mid for mid in preferred_ids(e) if mid in ids), None)
+        command = _codex_command(e, chosen if chosen != preferred_ids(e)[0] else None)
         line = (f"- Codex CLI: [`{path}`]({REPO_URL}/blob/main/{path}) — copy it to "
-                f"`~/.codex/`, then `{_codex_command(e)}`")
+                f"`~/.codex/`, then `{command}`")
         if api.codex.base_url != api.base_url.rstrip("/"):
             line += f"; Codex's base is `{api.codex.base_url}`"
         if api.codex.source:
@@ -2232,7 +2362,7 @@ def _connect_lines(e: Entry, ids: list[str]) -> list[str]:
 
 def _connect_section(e: Entry) -> list[str]:
     lane = lane_ids(e)
-    out = ["## Connect", "", *_connect_lines(e, lane.model_ids if lane else [])]
+    out = ["## Connect", "", *_connect_lines(e, lane.model_ids if lane else [], include_waiting=True)]
     if e.api and e.api.base_url and e.api.note:
         out.append(f"- Note: {e.api.note}")
     return out + [""] + _try_it(e)
@@ -2450,21 +2580,17 @@ def build_provider_page(e: Entry, events: list[Event], today: date, blocked: boo
     if archived:
         named = "The row named no free model."
     elif e.free_part is FreePart.SUM:
-        named = ("No model is free by itself here: the free part is an amount the account spends "
-                 "across the catalog, so the column names none. The limits below say what it buys; "
-                 "the ids to call, where the row has them, are under Connect.")
+        named = ("The free offer is a budget for model usage across the catalog. "
+                 "See Limits for its conditions and Connect for API details, where available.")
     elif e.free_part is FreePart.UNNAMED:
-        named = ("The vendor does not say which models the free part reaches, so the column names "
-                 "none.")
+        named = ("The vendor does not identify which models the free offer includes. "
+                 "See Limits for the published conditions.")
     elif e.newcomers:
         named = ("No free model family is listed yet; new offers must clear the two-week bar "
                  "before entering this section.")
-    elif e.probe.type is ProbeType.PAGE_KEYWORDS:
-        named = ("The page this row is verified against names no free model, so the column stays "
-                 "empty; callable ids, where the row has them, are under Connect.")
     else:
-        named = ("The row names no free model family; the ids its lane serves, where the row has "
-                 "them, are under Connect.")
+        named = ("No free model family is currently listed here; callable ids, where the row "
+                 "has them, are under Connect.")
     out += ["## Free models it listed" if archived else "## Free models", "",
             _entry_family_links(e, fams, model_pages(registry or [], events, today) if pages is None
                                 else pages) if fams else named,
@@ -2576,7 +2702,7 @@ def _listed_since(events: list[Event], entry_id: str, family: str) -> date | Non
 
 def _promotion_rows(entries: list[Entry], family: str) -> set[str]:
     return {e.id for e in entries if (lane := e.api or e.client_lane)
-            for i, a in lane.model_access.items() if a.until and family_names(family, i)}
+            for i, a in lane.model_access.items() if a.until and entry_id_family(e, i, [family]) == family}
 
 
 def _served_before(events: list[Event], family: str, serving: set[str],
@@ -2605,7 +2731,7 @@ def _model_row(e: Entry, family: str, events: list[Event]) -> list[str]:
     history stay on the row's own page, one click from its name."""
     lane = lane_ids(e)
     families = live_families(e)
-    ids = [i for i in (lane.model_ids if lane else []) if id_family(families, i) == family]
+    ids = [i for i in (lane.model_ids if lane else []) if entry_id_family(e, i, families) == family]
     flags = [CATEGORY_TITLES[e.category]]
     if not requires_payment(e, family):
         flags.append(_card_words(e))
@@ -2615,7 +2741,7 @@ def _model_row(e: Entry, family: str, events: list[Event]) -> list[str]:
         flags.append(_border_flag(e))
     if e.provisional:
         flags.append(_provisional_words(e))
-    flags.append(f"verified {e.last_verified.isoformat()}")
+    flags.append(f"last probe {e.last_verified.isoformat()}")
     since = _listed_since(events, e.id, family)
     if since is not None:
         flags.append(f"listed since {since.isoformat()}")
@@ -2648,11 +2774,11 @@ def build_model_page(family: str, entries: list[Entry], events: list[Event], tod
     A reader arrives with a model in mind as often as with a vendor — where is
     Kimi K3 free — and a search engine answers that with a page whose title is
     the question. This is that page: the model, "free", how many rows serve it
-    and the date a probe confirmed them in the title; then every live row that
+    and the providers' last probe dates in the title; then every live row that
     serves it, in the list's order, with what a reader needs to use it there,
     and the rows that listed it before, with the days they did. A model no row
-    serves any more keeps its page (`model_pages`), and the page says so in its
-    title: no longer free, since when, which rows listed it. Every word is the
+    currently lists keeps its page (`model_pages`), and the page says so in its
+    title: no current listing, since when, which rows listed it. Every word is the
     registry's or the history's, and the body sits inside {% raw %} for the
     reason the provider pages' does.
     """
@@ -2662,14 +2788,15 @@ def build_model_page(family: str, entries: list[Entry], events: list[Event], tod
     rows = by_family.get(family, [])
     by_id = {e.id: e for e in entries}
     before = _served_before(events, family, {e.id for e in rows}, _promotion_rows(entries, family))
-    if not rows and not before and family not in {m.family for e in entries for m in e.models}:
+    ever_named = any(family in event.models for event in events)
+    if not rows and not before and not ever_named and family not in {m.family for e in entries for m in e.models}:
         raise ValueError(f"the list never named {family!r}, so it has no page")
     departed = [spans[-1][1] for _, spans in before]
     changed = [*(_last_modified(e, events) for e in rows), *departed]
     stem = family.split("-")[0]
     # The same name before the first hyphen — glm, gemini, qwen3.8 — is the
     # family a reader who came for one of them is likeliest to ask about next,
-    # and the one to offer a reader whose model is no longer free.
+    # and the one to offer a reader whose model is no longer listed.
     related = [f for f in by_family if f != family and f.split("-")[0] == stem and f in pages]
     nav = f"[Every free model]({models_index_url()}) · [the whole list]({PAGES_URL}/)"
     if rows:
@@ -2693,9 +2820,10 @@ def build_model_page(family: str, entries: list[Entry], events: list[Event], tod
         asks += "."
         served = ("**One row on the list serves" if n == 1 else f"**{n} rows on the list serve")
         summary = [f"{served} `{family}` free:** {series(names)}.", asks,
-                   (f"The published offer was checked on {floor} and is rechecked {_schedule()}."
-                    if n == 1 else f"The published offers were checked on {floor} and are "
-                                   f"rechecked {_schedule()}.")]
+                   (f"The provider's last scheduled probe was on {floor}; its offer is "
+                    f"rechecked {_schedule()}." if n == 1 else
+                    f"The providers' last scheduled probes were on {floor}; their offers "
+                    f"are rechecked {_schedule()}.")]
         mark = _measured(family, rows)
         if mark is not None:
             board = (f"https://artificialanalysis.ai/models/{mark.aa_model}" if mark.aa_model
@@ -2708,10 +2836,10 @@ def build_model_page(family: str, entries: list[Entry], events: list[Event], tod
                 where = f"within {within:g} points of the top of the {index}"
             summary.append(f"It measures **{mark.tier.value}**: {where}.")
         title = (f"{family} free: {n} provider{'' if n == 1 else 's'}, limits and ids, "
-                 f"verified {floor}")
+                 f"provider probes {floor}")
         description = clip(f"{family} is served free by {series(names)}. {asks} Each "
                            "one's limits in the vendor's words, the ids to call and the "
-                           "day the published offer was last checked.", DESCRIPTION_ROOM)
+                           "provider's last probe date.", DESCRIPTION_ROOM)
         body = [f"# Where {family} is free", "", " ".join(summary), "", nav, "",
                 "## Who serves it free", ""]
         for e in rows:
@@ -2721,12 +2849,12 @@ def build_model_page(family: str, entries: list[Entry], events: list[Event], tod
         names = [by_id[i].name if i in by_id else i for i, _ in before]
         last = max(departed).isoformat() if departed else ""
         until = f" The list carried it at {series(names)} until {last}." if before else ""
-        title = f"{family} free: no longer free on the list" + (f", last listed {last}" if last else "")
-        description = clip(f"No row on the list serves {family} free any more.{until} "
-                           "Every model free today is on the list's model index.",
+        title = f"{family} free: no current listing" + (f", last listed {last}" if last else "")
+        description = clip(f"No row currently lists {family} under Free models.{until} "
+                           "Each row's page gives its current offer.",
                            DESCRIPTION_ROOM)
-        body = [f"# Where {family} was free", "",
-                f"**No row on the list serves `{family}` free any more.**{until} Each row's page "
+        body = [f"# {family}: no current free listing", "",
+                f"**No row currently lists `{family}` under Free models.**{until} Each row's page "
                 "says what it offers now.", "", nav, ""]
         gone_heading = "## Rows that listed it"
     if before:
@@ -2772,7 +2900,7 @@ def build_models_index(entries: list[Entry], today: date,
         gone.append((family, last, [entry_id for entry_id, _ in before]))
     gone.sort(key=lambda g: (g[1] or date.min, g[0]), reverse=True)
     by_id = {e.id: e for e in entries}
-    title = f"Free LLM models by name: who serves each one free, verified {_floor(active, today)}"
+    title = f"Free LLM models by name: who serves each one free, provider probes {_floor(active, today)}"
     description = clip(
         f"{len(by_family)} model families the list's {len(active)} live rows serve free, and every "
         f"row that serves each one; {len(pages & set(by_family))} of them have a page of their own "
@@ -2798,7 +2926,7 @@ def build_models_index(entries: list[Entry], today: date,
                                            _card_flag(e) + _access_flag(e, family)) for e in rows)
         out.append(f"| {cell} | {at} |")
     if gone:
-        out += ["", "## No longer free on the list", "",
+        out += ["", "## Previously listed models", "",
                 "| Model | Last listed | Rows that listed it |", "|---|---|---|"]
         for family, last, ids in gone:
             where = ", ".join("[{}]({})".format(
@@ -2974,12 +3102,15 @@ def render_site(registry_path: Path, template_dir: Path, out_path: Path,
     return text
 
 
-def _write_files(folder: Path, pattern: str, files: dict[str, str]) -> None:
+def _write_files(folder: Path, pattern: str, files: dict[str, str],
+                 dates: PageDates | None = None) -> None:
     """Write each file into `folder` and remove the ones there that match
     `pattern` and are no longer among them. A file of another kind is not the
     render's to delete."""
     folder.mkdir(parents=True, exist_ok=True)
     for name, text in files.items():
+        if dates is not None:
+            text = dates.stamp(f"{folder.name}/{name}", text)
         (folder / name).write_text(text, encoding="utf-8")
     for stale in folder.glob(pattern):
         if stale.name not in files:
@@ -3000,6 +3131,7 @@ def render_artifacts(registry_path: Path, root: Path, today: date | None = None,
     # The model pages, worked out once for every file that links one: the
     # rule's, and every page already published beside the registry.
     pages = model_pages(entries, history, today, _published_beside(registry_path))
+    dates = PageDates(registry_path.parent, today)
     (root / "feed.xml").write_text(build_feed(history, today, entries=entries), encoding="utf-8")
     # A page per row, the checked page and the index.
     _write_files(root / PROVIDERS_DIR, "*.md", {
@@ -3008,14 +3140,14 @@ def render_artifacts(registry_path: Path, root: Path, today: date | None = None,
                                              is_blocked(domain_of(e.url), blocklist),
                                              registry=entries, pages=pages)
            for e in entries},
-        f"{PROVIDERS_INDEX_PAGE}.md": build_providers_index(entries, today, history, pages)})
+        f"{PROVIDERS_INDEX_PAGE}.md": build_providers_index(entries, today, history, pages)}, dates)
     # A page per model that has one, the pages already published among them,
     # and the index of every model. The only file taken away is one no family
     # names: a page the site published stays (`model_pages`).
     _write_files(root / MODELS_DIR, "*.md", {
         **{f"{family}.md": build_model_page(family, entries, history, today, pages)
            for family in sorted(pages)},
-        "index.md": build_models_index(entries, today, history, pages)})
+        "index.md": build_models_index(entries, today, history, pages)}, dates)
     (root / "index.json").write_text(
         json.dumps(build_index(entries, today, watchlist, pages), indent=2,
                    ensure_ascii=False) + "\n",

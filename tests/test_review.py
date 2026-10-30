@@ -15,9 +15,9 @@ from freetier_radar import review
 def repo_at(tmp_path):
     repo = tmp_path / 'repo'
     repo.mkdir()
-    env = {**os.environ, 'GIT_AUTHOR_NAME': 'a reviewer', 'GIT_AUTHOR_EMAIL': 't@example.com',
-           'GIT_COMMITTER_NAME': 'a reviewer', 'GIT_COMMITTER_EMAIL': 't@example.com'}
-    subprocess.run(['git', 'init', '-q', str(repo)], check=True, env=env)
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    for key, value in (('user.name', 'a reviewer'), ('user.email', 't@example.com')):
+        subprocess.run(['git', '-C', str(repo), 'config', key, value], check=True)
     (repo / '.gitignore').write_text('.evidence/\n')
     before = {'entries': [{'id': 'vendor', 'models': [{'family': 'alpha', 'tier': 'strong'}]}],
               'models': [{'family': 'alpha', 'tier': 'strong', 'page': 'https://site.example/models/alpha/'}]}
@@ -27,8 +27,8 @@ def repo_at(tmp_path):
                                          'page': 'https://site.example/models/beta/'}]}):
         (repo / 'index.json').write_text(json.dumps(index))
         (repo / 'registry.yaml').write_text('entries: []\n')
-        subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True, env=env)
-        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'chore: fixture'], check=True, env=env)
+        subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'chore: fixture'], check=True)
     return repo
 
 
@@ -67,6 +67,64 @@ def test_rendered_page_changes_reach_review_coverage_without_registry_changes(tm
     assert [row['id'] for row in plan['rows']] == rows
     if rows:
         assert sum(case.endswith('/provider/vendor') for case in plan['cases']) == 6
+
+
+@pytest.mark.parametrize('change,rows', [
+    ('date', []), ('copy', ['vendor']), ('heading', ['vendor']),
+])
+@pytest.mark.parametrize('standing', [
+    ' and re-verified twice a week; the full list is linked below.',
+    '. No probe reads this row any more.',
+    '. A probe still reads it and can bring it back.',
+])
+def test_provider_generation_date_keeps_byte_checks_without_expanding_vendor_facts(tmp_path, change, rows, standing):
+    repo, _, _ = push_repo_at(tmp_path)
+    page = repo / 'providers/vendor.md'
+    page.parent.mkdir()
+    original = '# Vendor\n\nFree usage.\n\nGenerated from `registry.yaml` on 2026-10-10'+standing+'\n'
+    page.write_text(original)
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'chore: fixture'], check=True)
+    current = original.replace('2026-10-10', '2026-10-11')
+    if change == 'copy':
+        current = current.replace('Free usage.', 'New allowance.')
+    elif change == 'heading':
+        current = current.replace('# Vendor', '# Vendor current offer')
+    page.write_text(current)
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'chore: fixture'], check=True)
+    bundle = review.Bundle(repo / '.evidence', repo)
+    scope = review.prepare(repo, 'HEAD~1', 'HEAD', bundle)
+    assert scope['paths'] == ['providers/vendor.md']
+    assert scope['rows'] == rows
+    assert '2026-10-11' in (bundle.out / 'diff.patch').read_text()
+
+
+@pytest.mark.parametrize('substantive', [False, True])
+def test_page_metadata_migration_and_search_derivatives_share_one_vendor_scope(tmp_path, substantive):
+    repo, _, _ = push_repo_at(tmp_path)
+    page = repo / 'providers/vendor.md'
+    page.parent.mkdir(exist_ok=True)
+    page.write_text('---\ntitle: Vendor\nlast_modified_at: 2026-10-10\n---\n# Vendor\n\nLimit: 10 requests/day\n')
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'chore: baseline'], check=True)
+    data = json.loads((repo / 'index.json').read_text())
+    data['entries'][0]['search'] = {'name': data['entries'][0].get('name', 'Vendor')}
+    (repo / 'index.json').write_text(json.dumps(data))
+    page.write_text(page.read_text().replace('last_modified_at: 2026-10-10',
+                                           'last_modified_at: 2026-10-24'))
+    if substantive:
+        page.write_text(page.read_text().replace('10 requests/day', '20 requests/day'))
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'fix: reconcile content'], check=True)
+    bundle = review.Bundle(repo / '.evidence', repo)
+    scope = review.prepare(repo, 'HEAD~1', 'HEAD', bundle)
+    from freetier_radar.quality import vendor_scope, eligibility_scope
+    expected = ['vendor'] if substantive else []
+    assert scope['rows'] == expected
+    assert vendor_scope(repo, scope['base'], scope['sha'])['rows'] == expected
+    assert scope['eligibility'] == eligibility_scope(repo, scope['base'], scope['sha'])
+    assert scope['paths'] == ['index.json', 'providers/vendor.md']
 
 
 def push_repo_at(tmp_path):
@@ -269,6 +327,56 @@ def test_client_success_requires_the_fresh_answer_a_tool_and_no_error():
     assert not review.client_result('opencode', 0, good, 'different-marker')['passed']
 
 
+@pytest.mark.parametrize('mode,auto', [('--standalone', True), ('--pure', True), ('--pure', False), (None, False)])
+@pytest.mark.parametrize('help_stream', ['stdout', 'stderr'])
+def test_live_client_uses_the_binarys_isolated_run_mode(tmp_path, monkeypatch, mode, auto, help_stream):
+    entry = {'id': 'vendor', 'name': 'Vendor', 'category': 'api-free-tier',
+             'url': 'https://vendor.example', 'offering': 'Public chat lane',
+             'free_part': 'models', 'models': [{'family': 'alpha'}],
+             'api': {'base_url': 'https://vendor.example/v1', 'auth': 'none',
+                     'openai_compatible': True, 'model_ids': ['alpha']},
+             'probe': {'type': 'api-models', 'endpoint': 'https://vendor.example/v1/models'},
+             'first_seen': '2026-09-01', 'last_verified': '2026-10-09'}
+    registry = json.dumps({'entries': [entry]}).encode()
+    monkeypatch.setattr(review, 'scoped', lambda bundle: {'sha': 'a' * 40})
+    monkeypatch.setattr(review, 'blob', lambda repo, sha, path:
+                        registry if path == 'registry.yaml' else b'{"provider":{}}')
+    binary = tmp_path / 'opencode'
+    supported = [*([mode] if mode else []), *(['--auto'] if auto else [])]
+    binary.write_text('''#!/usr/bin/env python3
+import json, sys
+from pathlib import Path
+args = sys.argv[1:]
+supported = ''' + repr(supported) + '''
+help_stream = ''' + repr(help_stream) + '''
+if args == ['run', '--help']:
+    print('\\n'.join(supported), file=getattr(sys, help_stream))
+    sys.exit(0)
+if any(flag in args for flag in ('--standalone', '--pure', '--auto') if flag not in supported):
+    print('Unrecognized flag', file=sys.stderr)
+    sys.exit(2)
+if not all(flag in args for flag in supported):
+    print('Isolation or noninteractive permission flag missing', file=sys.stderr)
+    sys.exit(3)
+marker = Path('audit-marker.txt').read_text().strip()
+for event in [
+    {'type':'tool_use','part':{'type':'tool','state':{'status':'completed','output':marker}}},
+    {'type':'text','part':{'type':'text','text':marker}},
+    {'type':'step_finish','part':{'type':'step-finish','reason':'stop'}}
+]:
+    print(json.dumps(event))
+''')
+    binary.chmod(0o755)
+    bundle = review.Bundle(tmp_path / 'evidence', tmp_path)
+    result = review.live_client(bundle, 'opencode', str(binary), 'vendor', 'alpha')
+    if mode is None:
+        assert not result['passed']
+        assert 'no supported isolated run mode' in result['launch_error']
+        assert result['command'] == []
+        return
+    assert result['passed'], (bundle.out / result['evidence'] / 'stderr.log').read_text()
+
+
 def test_report_keeps_missing_phases_and_failed_live_calls_visible(tmp_path):
     bundle = review.Bundle(tmp_path / 'evidence', tmp_path)
     bundle.save('scope', {'sha': 'a' * 40})
@@ -276,6 +384,7 @@ def test_report_keeps_missing_phases_and_failed_live_calls_visible(tmp_path):
     result = review.report(bundle)
     assert not result['complete']
     assert 'publication' in result['missing']
+    assert 'judgment' in result['missing']
     assert 'client-opencode' in result['failed']
     assert result['human_review_required']
 
@@ -446,12 +555,29 @@ def test_report_requires_byte_checks_for_every_loaded_github_image(tmp_path):
     scope = review.prepare(repo, 'HEAD~1', 'HEAD', bundle)
     for phase in ('sources','workflows','publication','browser'):
         bundle.save(phase, {'sha': scope['sha'], 'passed': True})
+    from freetier_radar.quality import CRITERIA
+    proof = bundle.write('judgment/test.txt', b'Independent fixture findings')
+    bundle.save('judgment', {'sha': scope['sha'], 'base': scope['base'], 'passed': True,
+                            'paths': sorted(scope['paths']), 'decision': 'approve',
+                            'model_eligibility': [{'row': row, 'families': families,
+                                'plan': 'Free', 'payment': 'No payment', 'regions': 'All countries',
+                                'limits': 'Unpublished', 'deadline': 'None', 'conflicts': 'None in fixture',
+                                'conflict_status': 'none',
+                                'checked_at': '2026-10-13T00:00:00+00:00',
+                                'sources': ['https://vendor.example'], 'evidence': [proof]}
+                                for row, families in scope['eligibility'].items()],
+                            'criteria': {name: {'verdict': 'pass', 'finding': 'Reviewed ' + name,
+                                                'evidence': [proof]} for name in CRITERIA}})
     bundle.save('browser-execution', {'sha': scope['sha'], 'records': [
         {'image_url': 'https://github.com/image.svg', 'image_path': 'assets/image.svg'}]})
     assert not review.report(bundle)['complete']
     bundle.save('publication', {'sha': scope['sha'], 'passed': True, 'checks': [
         {'url': 'https://github.com/image.svg', 'path': 'assets/image.svg', 'kind': 'github-image', 'passed': True}]})
     assert review.report(bundle)['complete']
+    bundle.save('judgment', {'sha': scope['sha'], 'passed': True})
+    report = review.report(bundle)
+    assert not report['complete']
+    assert any('independent review' in p for p in report['integrity_problems'])
 
 
 def test_verification_log_must_prove_the_exact_produced_commit(tmp_path):
@@ -469,6 +595,54 @@ def test_verification_log_must_prove_the_exact_produced_commit(tmp_path):
         with pytest.raises(ValueError):
             review.produced_run(repo, sha, wrong_run, wrong_log, 'update')
     assert review.workflow_state([verified], sha, {'update'}) == 'passed'
+
+
+@pytest.mark.parametrize('filename,name,subject', [
+    ('update.yml', 'update', 'verification'),
+    ('expire.yml', 'expire promotions', 'expire model promotions'),
+])
+def test_prepare_accepts_only_the_matching_main_writer_receipt(tmp_path, monkeypatch,
+                                                              filename, name, subject):
+    import yaml
+    repo = repo_at(tmp_path)
+    workflows = repo / '.github/workflows'
+    workflows.mkdir(parents=True)
+    for file, workflow_name in [('update.yml', 'update'), ('expire.yml', 'expire promotions'),
+                                ('ci.yml', 'ci'), ('indexnow.yml', 'indexnow')]:
+        (workflows / file).write_text(yaml.safe_dump({
+            'name': workflow_name, 'on': {'push': {}} if file in {'ci.yml', 'indexnow.yml'} else {}}))
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'a reviewer', 'GIT_AUTHOR_EMAIL': 't@example.com',
+           'GIT_COMMITTER_NAME': 'a reviewer', 'GIT_COMMITTER_EMAIL': 't@example.com'}
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True, env=env)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'chore: fixture'], check=True, env=env)
+    sha = review.revision(repo, 'HEAD')
+    run = {'name': name, 'status': 'completed', 'conclusion': 'success',
+           'headSha': review.revision(repo, 'HEAD~1'), 'databaseId': 3, 'attempt': 1}
+    log = 'step timestamp [main '+sha[:7]+'] chore: '+subject+' 2026-10-11'
+    monkeypatch.setattr(review, 'gh', lambda *args: log if '--log' in args else json.dumps(run))
+    bundle = review.Bundle(repo / '.evidence/good', repo)
+    scope = review.prepare(repo, 'HEAD~1', 'HEAD', bundle, verification_run=3)
+    assert set(scope['workflows']) == {'pages build and deployment', name}
+    assert bundle.load('verification-run')['producedSha'] == sha
+    assert log in (bundle.out / 'workflows/3-1.log').read_text()
+
+    wrong_subject = 'verification' if filename == 'expire.yml' else 'expire model promotions'
+    wrong_log = log.replace('chore: '+subject, 'chore: '+wrong_subject)
+    monkeypatch.setattr(review, 'gh', lambda *args: wrong_log if '--log' in args else json.dumps(run))
+    with pytest.raises(ValueError, match='exact produced commit'):
+        review.prepare(repo, 'HEAD~1', 'HEAD', review.Bundle(repo / '.evidence/bad', repo),
+                       verification_run=3)
+
+    for index, (bad_run, bad_log) in enumerate([
+        ({**run, 'conclusion': 'failure'}, log),
+        ({**run, 'name': 'ci'}, log),
+        (run, log.replace(sha[:7], run['headSha'][:7])),
+        (run, log.replace('chore: '+subject, 'chore: '+subject+'-other')),
+    ]):
+        monkeypatch.setattr(review, 'gh', lambda *args: bad_log if '--log' in args else json.dumps(bad_run))
+        with pytest.raises(ValueError):
+            review.prepare(repo, 'HEAD~1', 'HEAD', review.Bundle(repo / ('.evidence/rejected-'+str(index)), repo),
+                           verification_run=3)
 
 
 def test_browser_plan_keeps_changed_archived_provider_pages(tmp_path):
@@ -500,7 +674,37 @@ def test_scope_includes_registry_changes_not_exposed_in_the_public_index(tmp_pat
     assert scope['rows'] == ['vendor']
 
 @respx.mock
-async def test_sources_check_numeric_quota_binding_beside_a_matching_old_quote(tmp_path):
+@pytest.mark.parametrize('target_changed', [False, True])
+async def test_sources_recheck_a_bound_model_card_beside_a_matching_identity_quote(tmp_path, target_changed):
+    from freetier_radar.models import Entry, save_registry
+    repo=repo_at(tmp_path)
+    source='https://vendor.example/identity';target='https://maker.example/science-397b'
+    entry=Entry.model_validate({
+        'id':'vendor','name':'Vendor','url':'https://vendor.example','category':'aggregator',
+        'offering':'Free chat models','free_part':'models','first_seen':'2026-09-01','last_verified':'2026-10-23',
+        'models':[{'family':'science-397b'}],
+        'api':{'base_url':'https://vendor.example/v1','model_ids':['science-free'],
+               'model_bindings':{'science-free':{'family':'science-397b','source':source,
+                                                'quote':'The science-free route','target':target}}},
+        'probe':{'type':'api-models','endpoint':'https://vendor.example/models','require_zero_price':True}})
+    save_registry(repo/'registry.yaml',[entry])
+    subprocess.run(['git','-C',str(repo),'add','registry.yaml'],check=True)
+    env={**os.environ,'GIT_AUTHOR_NAME':'a reviewer','GIT_AUTHOR_EMAIL':'t@example.com',
+         'GIT_COMMITTER_NAME':'a reviewer','GIT_COMMITTER_EMAIL':'t@example.com'}
+    subprocess.run(['git','-C',str(repo),'commit','-qm','fix: fixture identity'],check=True,env=env)
+    bundle=review.Bundle(repo/'.evidence',repo);review.prepare(repo,'HEAD~1','HEAD',bundle)
+    respx.get(entry.probe.endpoint).respond(200,json={'data':[{'id':'science-free','pricing':{'prompt':'0','completion':'0'}}]})
+    respx.get(source).respond(200,text='<p>The science-free route</p><a href="'+
+                              (target.replace('397b','35b') if target_changed else target)+'">Model card</a>')
+    result=await review.sources(bundle,[])
+    assert all(q['found'] for q in result['quotes'])
+    assert result['passed'] is (not target_changed)
+    assert any('model-card target' in note for record in result['model_checks'] for note in record['notes']) is target_changed
+
+
+@respx.mock
+@pytest.mark.parametrize('archived', [False, True])
+async def test_sources_check_numeric_quota_binding_beside_a_matching_old_quote(tmp_path, archived):
     from freetier_radar.models import Entry, save_registry
     repo = repo_at(tmp_path)
     entry = Entry.model_validate({
@@ -512,6 +716,9 @@ async def test_sources_check_numeric_quota_binding_beside_a_matching_old_quote(t
                    'source':'https://vendor.example/limits','read':'constant',
                    'constant':'FREE_MODEL_RATE_LIMIT_RPM',
                    'quote':'Free models allow 20 requests per minute.'}]})
+    if archived:
+        from freetier_radar.models import Delisting
+        entry.delisted = Delisting(on='2026-10-15', reason='free API allowance ended')
     save_registry(repo/'registry.yaml',[entry])
     subprocess.run(['git','-C',str(repo),'add','registry.yaml'],check=True)
     env = {**os.environ, 'GIT_AUTHOR_NAME':'a reviewer','GIT_AUTHOR_EMAIL':'t@example.com',
@@ -524,8 +731,46 @@ async def test_sources_check_numeric_quota_binding_beside_a_matching_old_quote(t
         '<p>Free models allow 20 requests per minute.</p><script>const FREE_MODEL_RATE_LIMIT_RPM=10;</script>')
     result = await review.sources(bundle, [])
     assert all(q['found'] for q in result['quotes'])
-    assert not result['passed']
-    assert result['quotas'][0]['notes'] == ['quota constant FREE_MODEL_RATE_LIMIT_RPM=10 (recorded 20)']
+    assert result['passed'] is archived
+    records = result['historical_checks']['quotas'] if archived else result['quotas']
+    assert records[0]['notes'] == ['quota constant FREE_MODEL_RATE_LIMIT_RPM=10 (recorded 20)']
+    if archived:
+        assert not records[0]['passed']
+        assert result['historical_rows'] == ['vendor']
+
+
+@respx.mock
+@pytest.mark.parametrize("role", ["historical", "shared", "extra"])
+@pytest.mark.parametrize("archive", ["delisted", "retired"])
+async def test_unread_historical_sources_stay_visible_without_certifying_current_use(tmp_path, monkeypatch, role, archive):
+    import yaml
+    from freetier_radar.models import _row_payload
+    from test_render import make
+
+    current = "https://current.example/pricing"
+    past = "https://past.example/pricing"
+    active = make(id="current", url="https://current.example", source_urls=[past] if role == "shared" else [current],
+                  probe={"type": "page-keywords", "endpoint": current, "keywords": ["Recurring free quota for chat"]})
+    historical = make(id="past", url="https://past.example", source_urls=[past],
+                      probe={"type": "page-keywords", "endpoint": past, "keywords": ["Previous free quota for chat"]},
+                      **({"delisted": {"on": "2026-10-15", "reason": "The old offer ended"}}
+                         if archive == "delisted" else {"retired_on": "2026-10-15"}))
+    monkeypatch.setattr(review, "blob", lambda *args: yaml.safe_dump({
+        "entries": [_row_payload(active), _row_payload(historical)]}).encode())
+    bundle = review.Bundle(tmp_path / "evidence", tmp_path)
+    bundle.save("scope", {"base": "a" * 40, "sha": "b" * 40, "rows": ["current", "past"], "paths": []})
+    respx.get(current).respond(200, text="Recurring free quota for chat")
+    respx.get(past).respond(403, text="A blocked historical page is not current vendor evidence")
+    result = await review.sources(bundle, [past] if role == "extra" else [])
+    assert result["passed"] is (role == "historical")
+    unread = next(r for r in result["checks"] if r["url"] == past)
+    assert not unread["passed"] and unread["attempts"]
+    if role == "historical":
+        assert result["historical_checks"]["sources"] == [unread]
+        assert not result["historical_checks"]["model_checks"][0]["passed"]
+    else:
+        assert unread not in result["historical_checks"].get("sources", [])
+    assert all(r["passed"] for r in result["model_checks"])
 
 
 def test_browser_batches_keep_full_coverage_and_do_not_accept_a_partial_run(tmp_path):
@@ -553,6 +798,44 @@ def test_browser_batching_preserves_every_assertion_from_the_full_script(tmp_pat
     selected = browser_script(bundle, cases=bundle.load('browser-plan')['cases'][:1])
     assertions = lambda code: [line.strip() for line in code.splitlines() if 'throw Error' in line]
     assert assertions(whole) == assertions(selected)
+
+
+@pytest.mark.parametrize('mode', ['no-strong', 'measured', 'unmeasured'])
+def test_browser_readme_coverage_follows_the_actual_committed_render(tmp_path, mode):
+    from datetime import date
+    from freetier_radar.models import Entry, save_registry
+    from freetier_radar.render import render_readme
+    from freetier_radar.review_browser import browser_plan, browser_script
+    repo = repo_at(tmp_path)
+    row = Entry.model_validate({
+        'id': 'vendor', 'name': 'Vendor', 'category': 'api-free-tier',
+        'url': 'https://vendor.example', 'offering': 'Free models',
+        'first_seen': '2026-07-19', 'last_verified': '2026-07-19',
+        'models': [{'family': 'alpha', 'tier': None if mode == 'no-strong' else 'strong'}],
+        'probe': {'type': 'page-keywords', 'endpoint': 'https://vendor.example/pricing',
+                  'keywords': ['100 free requests per day']}})
+    save_registry(repo / 'registry.yaml', [row])
+    scores = {'read_on': '2026-07-19', 'source': 'https://artificialanalysis.ai/leaderboards/models',
+              'top': {'slug': 'top', 'name': 'Top', 'index': 50}, 'median': 25,
+              'families': {'alpha': {'slug': 'alpha', 'index': 40, 'estimated': False}}}
+    render_readme(repo / 'registry.yaml', Path(__file__).resolve().parents[1] / 'templates',
+                  repo / 'README.md', today=date(2026, 7, 19),
+                  scores=scores if mode == 'measured' else None)
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'fix: render fixture'], check=True)
+    bundle = review.Bundle(repo / '.evidence', repo)
+    review.prepare(repo, 'HEAD~1', 'HEAD', bundle)
+    plan = browser_plan(bundle)
+    assert plan['readme_model_list'] == (mode == 'measured')
+    assert len(plan['readme_images']) == (2 if mode == 'measured' else 1)
+    assert any(alt.startswith('awesome-free-ai-coding') for alt in plan['readme_images'])
+    assert sum('/readme-image/' in case for case in plan['cases']) == 4 * len(plan['readme_images'])
+    script = browser_script(bundle)
+    assert ('await list.waitFor()' in script) == (mode == 'measured')
+    assert 'getByAltText' in script and 'Unexpected README picture count' in script
+    # A dirty worktree cannot hide the committed measured fold or invent one.
+    (repo / 'README.md').write_text('uncommitted unrelated content')
+    assert browser_plan(bundle)['readme_images'] == plan['readme_images']
 
 
 def test_browser_plan_keeps_folded_targets_outside_the_changed_rows(tmp_path):

@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'HPC-AI Model APIs free tier: limits, free models, verified 2026-10-08'
-description: OpenAI-compatible APIs over 24 models, GLM 5.3 Flash, Kimi K3 and MiniMax M3 among them, with $2 of free credit for every user — $4 with the vendor's invite code — at 5 requests a minute until a first deposit. The invite-code grant is the total signup balance, not an extra amount added to the…
+title: 'HPC-AI Model APIs free tier: limits, free models, verified 2026-10-26'
+description: OpenAI-compatible inference with $2 of signup credit, or $4 in total with the vendor invite code, before any deposit. The invite-code grant is the total signup balance, not an extra amount added to the standard grant; supplies are limited. Credit spends at model list prices. L0 applies before the…
 permalink: /providers/hpc-ai/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: HPC-AI Model APIs
 ---
 
@@ -11,15 +11,15 @@ crumb: HPC-AI Model APIs
 
 # HPC-AI Model APIs free tier
 
-🎁 Trials (no card when possible) · no card · not offered in mainland China · **live** — last verified by a probe on 2026-10-08 · [hpc-ai.com](https://www.hpc-ai.com/model-apis) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🎁 Trials (no card when possible) · no card · not offered in mainland China · **live** — last verified by a probe on 2026-10-26 · [hpc-ai.com](https://www.hpc-ai.com/model-apis) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-OpenAI-compatible APIs over 24 models, GLM 5.3 Flash, Kimi K3 and MiniMax M3 among them, with $2 of free credit for every user — $4 with the vendor's invite code — at 5 requests a minute until a first deposit
+OpenAI-compatible inference with $2 of signup credit, or $4 in total with the vendor invite code, before any deposit
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
@@ -37,7 +37,7 @@ The invite-code grant is the total signup balance, not an extra amount added to 
 
 ## Where it is offered
 
-Not offered in mainland China ([source](https://www.hpc-ai.com/agreement/service), read 2026-09-26). That leaves out 5.9% of the developers GitHub counts, beyond the countries under comprehensive US embargo ([Innovation Graph](https://innovationgraph.github.com/), 2026 Q1). In the vendor's words: “The Services are intended for users outside Mainland China and are not available to individuals or entities located in Mainland China”.
+Not offered in mainland China ([source](https://www.hpc-ai.com/agreement/service), read 2026-10-19). That leaves out 5.9% of the developers GitHub counts, beyond the countries under comprehensive US embargo ([Innovation Graph](https://innovationgraph.github.com/), 2026 Q1). In the vendor's words: “The Services are not offered or made available to customers or users located in Mainland China.”.
 
 ## What happens to what you send
 
@@ -76,6 +76,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

@@ -47,6 +47,115 @@ def page_entry() -> Entry:
     })
 
 
+@pytest.mark.parametrize(("fields", "free"), [
+    ({"pricing": "free"}, True),
+    ({"pricing": "paid"}, False),
+    ({"pricing": "0"}, False),
+    ({"pricing": 0}, False),
+    ({}, False),
+    ({"pricing": "free", "isFree": False}, False),
+    ({"pricing": "free", "available": False}, False),
+    ({"pricing": {"prompt": "0", "completion": "0"}}, True),
+])
+@respx.mock
+async def test_catalog_explicit_free_price_label_and_withdrawal_controls(fields, free):
+    row = {**BASE, "models": [{"family": "glm-4.7-flash"}],
+           "probe": {"type": "api-models", "endpoint": "https://api.x.ai/v1/models",
+                     "require_zero_price": True}}
+    # NovAI /v1/models publishes pricing="free" (checked 2026-10-22):
+    # https://aiapi-pro.com/v1/models. Missing prices on its paid rows are not free.
+    respx.get(row["probe"]["endpoint"]).respond(
+        200, json={"data": [{"id": "glm-4.7-flash", "owned_by": "zhipu", **fields}]})
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, Entry.model_validate(row), backoff=0)
+    assert (result.status is ProbeStatus.PASS) is free
+
+
+@pytest.mark.parametrize('free_remains', [True, False])
+@respx.mock
+async def test_experiential_partial_promotion_change_does_not_end_the_whole_offer(free_remains):
+    source = 'https://platform.experientiallabs.ai/llms.txt'
+    current = Entry.model_validate({
+        **BASE, 'id': 'experiential-labs', 'source_urls': [source],
+        'probe': {'type': 'page-keywords', 'endpoint': source,
+                  'keywords': ['some platform-funded models carry a promotional free daily tier']},
+        'quotas': [{'amount': 30000, 'unit': 'tokens', 'period': 'hour',
+                    'scope': 'organization-model', 'label': 'Fable 5.1 promotional output',
+                    'source': source, 'quote': 'Fable 5.1: 30k output tokens per hour',
+                    'value_phrase': '30k output tokens', 'period_quote': 'per hour',
+                    'reviewed_on': '2026-10-26'}]})
+    # The independent Free tiers documented here are separate from plan discounts:
+    # https://platform.experientiallabs.ai/llms.txt, captured 2026-10-26.
+    body = ('Free tiers: some platform-funded models carry a promotional free daily tier '
+            '(today gpt-6-astra). Eligibility: the org has a saved card AND one settled $1+ charge. '
+            'Astra has 500k input tokens per UTC day. '
+            '<slug>:free works on models with a free tier and is free only: '
+            'past the allowance it stops with a free limit message and is never charged.')
+    if not free_remains:
+        body = 'All model inference requires a paid subscription; no promotional allowance remains.'
+    respx.get(source).respond(200, text=body)
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, current, backoff=0)
+    assert result.status is (ProbeStatus.STALE_IDS if free_remains else ProbeStatus.FAIL)
+
+
+@pytest.mark.parametrize("table_state", ["present", "missing", "ambiguous"])
+@respx.mock
+async def test_page_models_require_free_input_and_output_in_the_bound_table(table_state):
+    row = page_entry().model_dump()
+    row["models"] = [{"family": name} for name in ("alpha", "beta", "gamma")]
+    row["probe"]["keywords"] = ["Alpha model free access"]
+    row["probe"]["model_prices"] = {"headers": ["Model", "Input", "Output"],
+                                     "name_column": "Model", "price_columns": ["Input", "Output"]}
+    body = '<p>Alpha model free access. Beta and Gamma are also available.</p><table>' \
+           '<tr><th>Model</th><th>Input</th><th>Output</th><th>Cached Read</th></tr>' \
+           '<tr><td>Alpha</td><td>Free</td><td>Free</td><td>Free</td></tr>' \
+           '<tr><td>Beta</td><td>$1</td><td>$2</td><td>Free</td></tr>' \
+           '<tr><td>Gamma</td><td>$1</td><td>Free</td><td>Free</td></tr></table>'
+    if table_state == "missing":
+        body = "Alpha model free access. Beta and Gamma are available."
+    elif table_state == "ambiguous":
+        body += body[body.index('<table>'):]
+    respx.get(row["probe"]["endpoint"]).respond(200, text=body)
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, Entry.model_validate(row), backoff=0)
+    assert result.status is ProbeStatus.STALE_MODELS
+    assert "beta" in result.detail and "gamma" in result.detail
+    assert ("alpha" in result.detail) is (table_state != "present")
+
+
+@pytest.mark.parametrize("table_state", ["present", "missing", "ambiguous", "duplicate-model", "duplicate-header"])
+@respx.mock
+async def test_page_models_require_inclusion_in_the_bound_free_plan(table_state):
+    row = page_entry().model_dump()
+    row["models"] = [{"family": name} for name in ("alpha", "beta", "gamma")]
+    row["probe"]["keywords"] = ["Alpha model free access"]
+    row["probe"]["model_plan"] = {"headers": ["Model", "Free", "Enterprise"],
+                                   "name_column": "Model", "plan_column": "Free",
+                                   "included_value": "✅"}
+    body = '<p>Alpha model free access. Beta and Gamma are available.</p><table>' \
+           '<tr><th>Model</th><th>Free</th><th>Enterprise</th></tr>' \
+           '<tr><td>Alpha</td><td>✅</td><td>✅</td></tr>' \
+           '<tr><td>Beta</td><td>❌</td><td>✅</td></tr>' \
+           '<tr><td>Gamma</td><td></td><td>✅</td></tr>'
+    if table_state == "duplicate-model":
+        body += '<tr><td>Alpha</td><td>❌</td><td>✅</td></tr>'
+    body += '</table><table><tr><th>Model</th><th>Paid</th></tr>' \
+            '<tr><td>Beta</td><td>✅</td></tr></table>'
+    if table_state == "missing":
+        body = "Alpha model free access. Beta and Gamma are available."
+    elif table_state == "ambiguous":
+        body += body[body.index('<table>'):]
+    elif table_state == "duplicate-header":
+        body = body.replace('<th>Enterprise</th>', '<th>Free</th><th>Enterprise</th>')
+    respx.get(row["probe"]["endpoint"]).respond(200, text=body)
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, Entry.model_validate(row), backoff=0)
+    assert result.status is ProbeStatus.STALE_MODELS
+    assert "beta" in result.detail and "gamma" in result.detail
+    assert ("alpha" in result.detail) is (table_state != "present")
+
+
 @respx.mock
 async def test_api_models_ok():
     respx.get("https://api.x.ai/v1/models").mock(return_value=httpx.Response(
@@ -87,11 +196,63 @@ def zero_price_entry() -> Entry:
 FREE_QWEN = {"id": "qwen/qwen3-coder:free", "pricing": {"prompt": "0", "completion": "0"}}
 
 
+@pytest.mark.parametrize("fields, expected", [
+    ({"enabled": True, "status": "available"}, ProbeStatus.PASS),
+    ({"enabled": False, "status": "planned"}, ProbeStatus.FAIL),
+    ({"enabled": "false"}, ProbeStatus.FAIL),
+    ({"status": "planned"}, ProbeStatus.FAIL),
+    ({"available": True, "enabled": False}, ProbeStatus.FAIL),
+    ({"available": False, "enabled": True}, ProbeStatus.FAIL),
+    ({"enabled": True, "status": "available", "price_sc_input": 1}, ProbeStatus.FAIL),
+    ({"enabled": True, "status": "available", "price_sc_output": 1}, ProbeStatus.FAIL),
+    ({"enabled": True, "status": "available", "price_sc_cached": 0.5}, ProbeStatus.PASS),
+    ({"enabled": True, "pricing": {"request": 1}}, ProbeStatus.FAIL),
+])
+@respx.mock
+async def test_flat_token_prices_and_catalog_state_at_http_boundary(fields, expected):
+    """A free-tier label does not make a planned or metered SC alias callable.
+
+    Public contract: https://simplellm.eu/docs/models.md, checked 2026-10-14.
+    """
+    entry = zero_price_entry()
+    entry.api = ApiInfo(base_url="https://api.x.ai/v1", model_ids=[FREE_QWEN["id"]])
+    row = {"id": FREE_QWEN["id"], "is_free": True,
+           "price_sc_input": 0, "price_sc_output": 0, **fields}
+    respx.get(entry.probe.endpoint).respond(200, json=[row])
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, entry, backoff=0)
+    assert result.status is expected, result.detail
+
+
+@pytest.mark.parametrize("fields, expected", [
+    ({"price_sc_input": 0, "price_sc_output": 0}, ProbeStatus.PASS),
+    ({"price_sc_input": 0}, ProbeStatus.FAIL),
+    ({"price_sc_input": 0, "price_sc_output": None}, ProbeStatus.FAIL),
+    ({"price_sc_input": False, "price_sc_output": 0}, ProbeStatus.FAIL),
+])
+@respx.mock
+async def test_flat_token_price_requires_both_published_sides(fields, expected):
+    respx.get("https://api.x.ai/v1/models").respond(
+        200, json=[{"id": FREE_QWEN["id"], **fields}])
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, zero_price_entry(), backoff=0)
+    assert result.status is expected, result.detail
+
+
 @pytest.mark.parametrize("id_field", ["id", "model_id"])
 @pytest.mark.parametrize("catalog_limits, detail", [
     ({"context_length": 131042, "top_provider": {"max_completion_tokens": 16384}}, ""),
+    ({"context_length": 131042, "max_output_tokens": 16384}, ""),
+    ({"context_length": 131042, "max_output_tokens": 8192,
+      "top_provider": {"max_completion_tokens": 32768}},
+     "output_tokens=8192 (recorded 16384)"),
+    ({"context_length": 131042, "max_output_tokens": 32768,
+      "top_provider": {"max_completion_tokens": 16384}}, ""),
+    ({"context_length": 131042, "max_output_tokens": True}, "output_tokens unavailable"),
     ({"context_length": 65536, "top_provider": {"max_completion_tokens": 8192}},
      "context_tokens=65536 (recorded 131042), output_tokens=8192 (recorded 16384)"),
+    ({"context_length": 131042, "top_provider": {"context_length": 65536, "max_completion_tokens": 16384}},
+     "context_tokens=65536 (recorded 131042)"),
     ({"context_length": 131042}, "output_tokens unavailable"),
     ({"context_length": True, "top_provider": {"max_completion_tokens": "16384"}},
      "context_tokens unavailable, output_tokens unavailable"),
@@ -121,6 +282,40 @@ def two_family_entry() -> Entry:
     e = zero_price_entry()
     e.models = [ModelFamily(family="qwen3-coder"), ModelFamily(family="llama-4")]
     return e
+
+
+@pytest.mark.parametrize("parameters, supported", [(None, False), (["max_tokens"], False),
+                                                   (["max_completion_tokens"], False),
+                                                   (["max_tokens", "max_completion_tokens"], True)])
+@respx.mock
+async def test_catalog_reports_lost_support_for_a_client_output_budget(parameters, supported):
+    row = zero_price_entry().model_dump()
+    row["api"] = {"base_url": "https://api.x.ai/v1", "model_ids": [FREE_QWEN["id"]],
+                  "opencode_output_tokens": {FREE_QWEN["id"]: 8000}}
+    respx.get(row["probe"]["endpoint"]).respond(200, json={"data": [
+        {**FREE_QWEN, "supported_parameters": parameters}]})
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, Entry.model_validate(row), backoff=0)
+    assert result.status is (ProbeStatus.PASS if supported else ProbeStatus.STALE_IDS)
+    if not supported:
+        assert "unavailable" in result.detail
+
+
+@pytest.mark.parametrize("limits", [
+    {"max_output_tokens": 4000, "top_provider": {"max_completion_tokens": 16000}},
+    {"max_output_tokens": 16000, "top_provider": {"max_completion_tokens": 4000}},
+])
+@respx.mock
+async def test_client_budget_respects_each_published_output_limit(limits):
+    row = zero_price_entry().model_dump()
+    row["api"] = {"base_url": "https://api.x.ai/v1", "model_ids": [FREE_QWEN["id"]],
+                  "opencode_output_tokens": {FREE_QWEN["id"]: 8000}}
+    respx.get(row["probe"]["endpoint"]).respond(200, json={"data": [
+        {**FREE_QWEN, **limits, "supported_parameters": ["max_tokens", "max_completion_tokens"]}]})
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, Entry.model_validate(row), backoff=0)
+    assert result.status is ProbeStatus.STALE_IDS
+    assert "budget 8000 exceeds output limit 4000" in result.detail
 
 
 @respx.mock
@@ -720,25 +915,61 @@ async def test_the_free_mark_is_read_per_endpoint_and_per_publisher():
 
 
 @respx.mock
-async def test_a_deprecation_date_takes_an_id_out_before_it_stops_answering():
-    """A DEPRECATION date on the free list withdraws the endpoint on the first run
-    that sees it, while it still answers: a config id becomes a note, and a Models
-    family resting on it fails."""
+async def test_an_elapsed_deprecation_date_requires_current_endpoint_review():
+    """An announcement expires verification without inventing a withdrawal."""
     mock_nim(nim_catalog("moonshotai/kimi-k3", "z-ai/glm-5.3"),
              ngc_search(ngc_endpoint("moonshotai", "kimi-k3"),
                         ngc_endpoint("z-ai", "glm-5-3", deprecation="10/06/2026")))
     async with httpx.AsyncClient() as client:
-        result = await probe_entry(client, nim_entry(), backoff=0)
-    assert result.status is ProbeStatus.STALE_IDS
-    assert "z-ai/glm-5.3 is marked unavailable" in result.detail
+        result = await probe_entry(client, nim_entry(), backoff=0, today=date(2026, 10, 7))
+    assert result.status is ProbeStatus.INCONCLUSIVE
+    assert "current endpoint availability requires review" in result.detail
 
     mock_nim(nim_catalog("moonshotai/kimi-k3", "z-ai/glm-5.3"),
              ngc_search(ngc_endpoint("moonshotai", "kimi-k3", deprecation="10/06/2026"),
                         ngc_endpoint("z-ai", "glm-5-3")))
     async with httpx.AsyncClient() as client:
-        result = await probe_entry(client, nim_entry(), backoff=0)
-    assert result.status is ProbeStatus.FAIL
-    assert "marked unavailable" in result.detail and "moonshotai/kimi-k3" in result.detail
+        result = await probe_entry(client, nim_entry(), backoff=0, today=date(2026, 10, 7))
+    assert result.status is ProbeStatus.INCONCLUSIVE
+    assert "moonshotai/kimik3" in result.detail
+
+
+@pytest.mark.parametrize("day,status", [
+    (date(2026, 10, 15), ProbeStatus.PASS),
+    (date(2026, 10, 19), ProbeStatus.PASS),
+    (date(2026, 10, 20), ProbeStatus.INCONCLUSIVE),
+])
+@respx.mock
+async def test_free_endpoint_announcement_does_not_prematurely_withdraw_it(day, status):
+    mock_nim(nim_catalog("moonshotai/kimi-k3", "z-ai/glm-5.3"),
+             ngc_search(ngc_endpoint("moonshotai", "kimi-k3"),
+                        ngc_endpoint("z-ai", "glm-5-3", deprecation="10/19/2026")))
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, nim_entry(), backoff=0, today=day)
+    assert result.status is status
+
+
+@respx.mock
+async def test_unreadable_retirement_date_leaves_offer_unchecked():
+    mock_nim(nim_catalog("moonshotai/kimi-k3", "z-ai/glm-5.3"),
+             ngc_search(ngc_endpoint("moonshotai", "kimi-k3"),
+                        ngc_endpoint("z-ai", "glm-5-3", deprecation="later this month")))
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, nim_entry(), backoff=0, today=date(2026, 10, 15))
+    assert result.status is ProbeStatus.INCONCLUSIVE
+    assert "retirement date" in result.detail
+
+
+@respx.mock
+async def test_future_retirement_does_not_override_catalog_unavailability():
+    catalog = nim_catalog("moonshotai/kimi-k3", "z-ai/glm-5.3")
+    catalog["data"][1]["available"] = False
+    mock_nim(catalog, ngc_search(ngc_endpoint("moonshotai", "kimi-k3"),
+                                ngc_endpoint("z-ai", "glm-5-3", deprecation="10/19/2026")))
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, nim_entry(), backoff=0, today=date(2026, 10, 15))
+    assert result.status is ProbeStatus.STALE_IDS
+    assert "marked unavailable" in result.detail
 
 
 @respx.mock
@@ -1214,6 +1445,34 @@ async def test_a_family_folded_into_a_shared_suffix_is_evidenced():
     assert result.status is ProbeStatus.PASS
 
 
+@pytest.mark.parametrize(("family", "published"), [
+    ("qwen-vl-plus", "Qwen3-VL-Plus"),
+    ("qwen-turbo", "qwen-doc-turbo"),
+])
+@respx.mock
+async def test_a_different_compound_model_name_does_not_evidence_a_family(family, published):
+    entry = listing_entry()
+    entry.models = [ModelFamily(family=family)]
+    respx.get("https://x.ai/pricing").mock(return_value=httpx.Response(
+        200, text=f"qwen3-coder, free tier, no credit card. Model ID: {published}."))
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, entry, backoff=0)
+    assert result.status is ProbeStatus.STALE_MODELS
+    assert family in result.detail
+
+
+@pytest.mark.parametrize("published", ["Qwen-VL-Plus", "Qwen-<b>VL</b>-Plus"])
+@respx.mock
+async def test_an_exact_compound_model_name_keeps_its_word_and_markup_separators(published):
+    entry = listing_entry()
+    entry.models = [ModelFamily(family="qwen-vl-plus")]
+    respx.get("https://x.ai/pricing").mock(return_value=httpx.Response(
+        200, text=f"qwen3-coder, free tier, no credit card. Model ID: {published}."))
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, entry, backoff=0)
+    assert result.status is ProbeStatus.PASS
+
+
 @respx.mock
 async def test_family_parts_scattered_over_the_page_are_not_evidence():
     entry = listing_entry()
@@ -1243,8 +1502,7 @@ async def test_an_older_version_on_the_page_does_not_name_a_newer_family():
 
 @respx.mock
 async def test_a_version_ending_a_sentence_still_names_its_family():
-    """Only the left edge of each part is anchored, so a family followed by a
-    period ("MiniMax 2.1.") is still named."""
+    """The word boundary allows a family followed by punctuation."""
     entry = listing_entry()
     entry.models = [entry.models[0].model_copy(update={"family": "minimax-2.1"})]
     respx.get("https://x.ai/pricing").mock(return_value=httpx.Response(
@@ -1286,12 +1544,12 @@ async def test_a_letter_never_carries_a_bare_version_number():
 
 
 @respx.mock
-async def test_a_family_named_only_in_the_page_data_is_evidenced():
-    """The family check reads the raw page, script data included, while keywords
-    read the rendered text: a family named only in page data is served, and
-    whether it is free is the keywords' question."""
+async def test_a_family_explicitly_bound_to_page_data_is_evidenced():
+    """An explicit machinery keyword keeps a reviewed client-rendered model
+    checkable without accepting unrelated retired navigation state."""
     entry = listing_entry()
     entry.models = [ModelFamily(family="mercury-2")]
+    entry.probe.machinery_keywords = ["vendor/mercury-2"]
     respx.get("https://x.ai/pricing").mock(return_value=httpx.Response(
         200, text='qwen3-coder on the free tier, no credit card'
                   '<script>{"id":"vendor/mercury-2"}</script>'))
@@ -1526,10 +1784,9 @@ async def test_a_free_id_the_catalog_carries_and_the_config_does_not_is_reported
 
 
 @respx.mock
-async def test_growth_is_read_with_the_row_s_own_lane_definition():
-    """An unlisted id counts as growth only inside the row's lane: it carries
-    free_marker (a zero-priced preview without `:free` is outside), is priced 0
-    and is callable."""
+async def test_unmarked_free_candidates_need_review_without_admitting_paid_or_paused_rows():
+    """A suffix cannot hide a new free coding route. Noncoding zero-priced
+    candidates require an explicit exclusion rather than silent omission."""
     entry = config_entry("qwen/qwen3-coder:free")
     respx.get("https://api.x.ai/v1/models").mock(return_value=httpx.Response(
         200, json=_lane(
@@ -1540,7 +1797,10 @@ async def test_growth_is_read_with_the_row_s_own_lane_definition():
              "pricing": {"prompt": "0", "completion": "0"}})))
     async with httpx.AsyncClient() as client:
         result = await probe_entry(client, entry, backoff=0)
-    assert result.status is ProbeStatus.PASS
+    assert result.status is ProbeStatus.STALE_IDS
+    assert 'google/lyria-3-pro-preview' in result.detail
+    assert 'vendor/metered:free' not in result.detail
+    assert 'vendor/paused:free' not in result.detail
 
 
 @respx.mock
@@ -1788,6 +2048,38 @@ async def test_a_dry_run_counts_its_failures_so_a_shell_chain_can_stop(tmp_path)
     save_registry(reg, [good, bad])
     failed = await _amain(reg, tmp_path / "failures", dry_run=True)
     assert failed == 1
+
+
+@pytest.mark.parametrize('dry_run', [False, True])
+@respx.mock
+async def test_selected_verification_never_requests_or_changes_other_rows(tmp_path, dry_run):
+    from freetier_radar.models import load_registry
+    selected, untouched = page_entry(), api_entry()
+    untouched.probe_failures = 2
+    registry = tmp_path / 'registry.yaml'
+    save_registry(registry, [selected, untouched])
+    before = registry.read_bytes()
+    request = respx.get(selected.probe.endpoint).respond(
+        200, text='qwen3-coder free tier no credit card')
+    assert await _amain(registry, tmp_path / 'failures', dry_run=dry_run, ids=['pagey']) == 0
+    assert request.call_count == 1
+    after = load_registry(registry)
+    assert after[1].model_dump() == untouched.model_dump()
+    if dry_run:
+        assert registry.read_bytes() == before
+    else:
+        assert after[0].last_verified == date.today()
+
+
+@respx.mock
+async def test_unknown_selected_provider_fails_before_any_request_or_write(tmp_path):
+    registry = tmp_path / 'registry.yaml'
+    save_registry(registry, [page_entry()])
+    before = registry.read_bytes()
+    with pytest.raises(ValueError, match='unknown provider'):
+        await _amain(registry, tmp_path / 'failures', ids=['typo'])
+    assert registry.read_bytes() == before
+    assert not (tmp_path / 'failures').exists()
 
 
 def test_stale_ids_verifies_the_entry_like_a_pass():

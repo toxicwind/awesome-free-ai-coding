@@ -78,6 +78,26 @@ def test_shared_session_allowance_stays_in_limits_instead_of_model_labels(tmp_pa
     if surface == "site":
         text = render_site(reg, Path("templates"), tmp_path / "index.html", today=today)
         model_text = re.search(r'<td class="models"[^>]*>(.*?)</td>', text, re.S).group(1)
+        # The shared search input is escaped data in an attribute. Count all
+        # public text nodes, including folded limits, rather than that metadata.
+        from html.parser import HTMLParser
+        class Text(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.skip = False
+                self.parts = []
+            def handle_starttag(self, tag, attrs):
+                if tag in ("script", "style"):
+                    self.skip = True
+            def handle_endtag(self, tag):
+                if tag in ("script", "style"):
+                    self.skip = False
+            def handle_data(self, data):
+                if not self.skip:
+                    self.parts.append(data)
+        parser = Text()
+        parser.feed(text)
+        text = "".join(parser.parts)
     elif surface == "readme":
         text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=today)
         model_text = next(line for line in text.splitlines() if line.startswith('- **[Vendor]'))
@@ -104,6 +124,38 @@ def test_a_model_specific_session_condition_keeps_its_access_label():
     data["models"][1].update(hours=None, limited=False, condition="us-session", listed=True)
     row = build_index([entry(data)], date(2026, 10, 6))["entries"][0]
     assert row["access_labels"]["models"]["beta"] == quote
+
+
+@pytest.mark.parametrize("surface", ["site", "readme"])
+@pytest.mark.parametrize("slot", ["starter", "frontier"])
+def test_short_recommendations_keep_model_conditions_without_shared_limits(tmp_path, surface, slot):
+    from pathlib import Path
+    from freetier_radar.models import save_registry
+    from freetier_radar.render import render_readme, render_site
+    data = session_catalog_data()
+    quote = "Beta is free in the US, one session a day for every account."
+    data["conditions"]["us-session"] = {"kind": "free-session", "quote": quote}
+    data["models"][1].update(hours=None, limited=False, condition="us-session")
+    for model in data["models"][:2]:
+        model["listed"] = True
+        model["model"].update(tier="frontier", aa_model=model["model"]["family"])
+    reg = tmp_path / "registry.yaml"
+    save_registry(reg, [entry(data)])
+    today = date(2026, 10, 6)
+    if surface == "readme":
+        text = render_readme(reg, Path("templates"), tmp_path / "README.md", today=today)
+        prefix = "- **[Vendor]" if slot == "starter" else "- **Frontier-tier models"
+        recommendation = next(line for line in text.splitlines() if line.startswith(prefix))
+        assert "`alpha` (" not in recommendation
+    else:
+        text = render_site(reg, Path("templates"), tmp_path / "index.html", today=today)
+        heading = "Agent · no card" if slot == "starter" else "Frontier models, $0"
+        card = text.split(f"<h3>{heading}</h3>", 1)[1]
+        recommendation = re.search(r'<div class="chips">(.*?)</div>', card, re.S).group(1)
+        assert re.search(r'<(?:a|span) class="chip(?: top)?"[^>]*>alpha</(?:a|span)>', recommendation)
+    assert "alpha" in recommendation and "beta" in recommendation
+    assert quote in recommendation
+    assert data["limited_allowance"] not in recommendation
 
 
 def test_older_session_catalog_remains_readable_but_current_missing_dates_are_flagged(tmp_path):
@@ -136,6 +188,89 @@ def page(*, amount=100, hours=10, names=("Alpha", "Beta", "Gamma"), rows=None,
     return (f'<script type="application/ld+json">{json.dumps(faq)}</script>'
             f"<h2>Model hours</h2><p>{amount} Credits every day for free.</p><ul>{table}</ul>"
             f"<p>{condition}</p><h2>Other features</h2>")
+
+
+@respx.mock
+async def test_catalog_picker_label_can_differ_from_its_canonical_family():
+    data = session_catalog_data()
+    data['models'][0].update(name='Quick Choice', listed=True)
+    body = page().replace('Alpha', 'Quick Choice')
+    respx.get(data['source']).respond(200, text=body)
+    async with httpx.AsyncClient() as client:
+        result = await probe_entry(client, entry(data), attempts=1, backoff=0)
+    assert result.status is ProbeStatus.PASS
+    assert [model.family for model in entry(data).models] == ['alpha']
+
+
+@respx.mock
+async def test_catalog_picker_alias_cannot_hide_a_missing_or_changed_offer():
+    data = session_catalog_data()
+    data['models'][0].update(name='Quick Choice', listed=True)
+    async with httpx.AsyncClient() as client:
+        respx.get(data['source']).respond(200, text=page().replace('Alpha', 'Other Choice'))
+        missing = await probe_entry(client, entry(data), attempts=1, backoff=0)
+        respx.get(data['source']).respond(200, text=page(amount=150).replace('Alpha', 'Quick Choice'))
+        changed = await probe_entry(client, entry(data), attempts=1, backoff=0)
+    assert missing.status is ProbeStatus.STALE_MODELS
+    assert 'alpha' in missing.detail
+    assert changed.status is ProbeStatus.STALE_IDS and 'budget US' in changed.detail
+
+
+@respx.mock
+async def test_regional_budget_amount_is_rechecked_on_its_own_plan_source():
+    from freetier_radar.quotes import row_quote_source, row_urls
+    data = session_catalog_data()
+    data['read'].update(format='markdown', table_heading=None)
+    data['reviewed_on'] = date.today().isoformat()
+    plans = 'https://vendor.example/plans'
+    amount_quote = 'Free plan includes 100 Credits a day.'
+    data['budgets'] = [
+        {'id': 'us', 'amount': 100, 'countries': ['US'], 'quote': 'Full access covers US.',
+         'amount_source': plans, 'amount_quote': amount_quote},
+        {'id': 'other', 'amount': 25, 'scope': 'else', 'quote': '25 Credits a day elsewhere'},
+        {'id': 'vpn', 'amount': 20, 'scope': 'vpn', 'quote': '20 Credits a day on a VPN'},
+    ]
+    data['conditions']['wallet'] = {'kind': 'wallet', 'quote': 'Credits buy one-hour sessions.'}
+    for model in data['models'][:2]:
+        model.update(hours=None, condition='wallet', listed=True)
+    body = '''# Vendor
+Credits every day for free.
+### Which models?
+- Alpha: Balanced.
+- Beta: Reasoning.
+- Gamma: Paid.
+### How do credits work?
+Full access covers US. Credits buy one-hour sessions.
+Free plan includes 100 Credits a day.
+### What is limited mode?
+25 Credits a day elsewhere, or 20 Credits a day on a VPN.
+Session-based limited mode includes Alpha and Beta, with 6 one-hour sessions per day.
+Gamma needs a paid plan.
+'''
+    e = entry(data)
+    respx.get(data['source']).respond(200, text=body)
+    route = respx.get(plans).respond(200, text=amount_quote)
+    async with httpx.AsyncClient() as client:
+        good = await probe_entry(client, e, attempts=1, backoff=0)
+        route.respond(200, text='Free plan includes 50 Credits a day.')
+        changed = await probe_entry(client, e, attempts=1, backoff=0)
+        route.respond(503)
+        unreadable = await probe_entry(client, e, attempts=1, backoff=0)
+    assert good.status is ProbeStatus.PASS
+    assert changed.status is ProbeStatus.STALE_IDS and 'budgets[0].amount_quote' in changed.detail
+    assert unreadable.status is ProbeStatus.STALE_IDS and 'budgets[0].amount_quote' in unreadable.detail
+    assert plans in row_urls(e)
+    assert row_quote_source(e, 'page_catalog.budgets[0].amount_quote') == plans
+
+
+@pytest.mark.parametrize('quote', ['100 Credits', 'Free plan … 100 Credits', 'Free plan ... 100 Credits'])
+def test_a_separate_budget_amount_cannot_use_an_uncheckable_fragment(quote):
+    from pydantic import ValidationError
+    from freetier_radar.models import CreditBudget
+    with pytest.raises(ValidationError):
+        CreditBudget.model_validate({'id': 'us', 'amount': 100, 'countries': ['US'],
+            'quote': 'Full access covers US.', 'amount_source': 'https://vendor.example/plans',
+            'amount_quote': quote})
 
 
 @respx.mock
@@ -175,7 +310,8 @@ Gamma needs a paid plan.
     assert expired.status is ProbeStatus.STALE_IDS and 'fresh dated review' in expired.detail
     row=build_index([entry(data)],date.today())['entries'][0]
     assert [m['family'] for m in row['models']]==['alpha','beta']
-    assert 'hour prices are not published' in row['limits']
+    assert 'hour prices are not published' not in row['limits']
+    assert "Check your account's picker for current model hour prices" in row['limits']
     assert 'Credits buy' not in json.dumps(row['access_labels']['models'])
     assert row['limits'].count('6 one-hour sessions per day')==1
     save_registry(tmp_path/'registry.yaml',[entry(data)])
@@ -468,6 +604,24 @@ def test_weekly_budget_keeps_its_period_in_all_presentations():
     for text in (catalog_words(e.page_catalog), build_provider_page(e, [], date(2026, 10, 6))):
         assert 'Weekly allowance' in text and 'Shared weekly credits'.lower() in text.lower()
         assert 'daily' not in text.lower()
+
+
+@pytest.mark.parametrize("period,expected", [
+    ("day", "Beta: shared daily hours"),
+    ("week", "Beta: shared weekly hours"),
+    ("month", "Beta: shared monthly hours"),
+])
+def test_wallet_descriptions_keep_the_catalog_unit(period, expected):
+    from freetier_radar.render import build_index, build_llms_txt, build_provider_page
+    data = catalog_data()
+    data.update(unit="hours", period=period)
+    e = entry(data)
+    today = date(2026, 10, 6)
+    for text in (build_index([e], today)["entries"][0]["limits"],
+                 build_provider_page(e, [], today, registry=[e], pages=set()),
+                 build_llms_txt([e], today, pages=set())):
+        assert expected in text
+        assert "Beta: shared daily credits" not in text
 
 
 @pytest.mark.parametrize('body,finding', [(page(amount=150),'budget US: 150'), (None,'source unreadable')])

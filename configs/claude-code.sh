@@ -8,7 +8,7 @@
 # gateway the next credential it holds, your own sign-in included.
 
 # ── OpenRouter (free models) · get a key: https://openrouter.ai/settings/keys
-#    free ids: nvidia/nemotron-3-ultra-550b-a55b:free, nvidia/nemotron-3-super-120b-a12b:free, nvidia/nemotron-3.5-lightning:free, nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free, google/gemma-4-31b-it:free, google/gemma-4-26b-a4b-it:free, cohere/north-mini-code:free, poolside/laguna-s-2.1:free, poolside/laguna-xs-2.1:free, thinkingmachines/inkling:free, thinkingmachines/inkling-small:free, dots-studio/dots-3-note-preview:free, inclusionai/ling-3.0-flash-sante:free, liquid/lfm-2.5-2.6b:free, openrouter/free, apodex/apodex-1.1-mini:free
+#    free ids: nvidia/nemotron-3-ultra-550b-a55b:free, nvidia/nemotron-3.5-lightning:free, nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free, google/gemma-4-31b-it:free, google/gemma-4-26b-a4b-it:free, cohere/north-mini-code:free, poolside/laguna-s-2.1:free, poolside/laguna-xs-2.1:free, thinkingmachines/inkling:free, thinkingmachines/inkling-small:free, dots-studio/dots-3-note-preview:free, liquid/lfm-2.5-2.6b:free, openrouter/free, nvidia/nemotron-3.5-super-vl:free, xingchen-agi/xing4.0-29b-a4b:free, recursive/flint-v1.0:free
 claude-openrouter-free() {
   if [ -z "${OPENROUTER_API_KEY:-}" ]; then
     echo "claude-openrouter-free: set OPENROUTER_API_KEY first (configs/free-llm.env.example)" >&2
@@ -36,7 +36,7 @@ claude-requesty() {
 }
 
 # ── AIHubMix (free models) · get a key: https://aihubmix.com/token
-#    free ids: coding-glm-5.2-free, coding-glm-5.1-free, coding-kimi-k3-free, kimi-for-coding-free, xiaomi-mimo-v2.5-free, north-mini-code-free, ling-3.0-tiny-free, nemotron-3-ultra-550b-a55b-free, agents-a1-free, coding-glm-4.6-free, coding-glm-4.7-free, coding-glm-5-free, coding-glm-5-turbo-free, coding-glm-5.3-flash-free, coding-glm-5.3-free, coding-minimax-m2-free, coding-minimax-m2.1-free, coding-minimax-m2.5-free, coding-minimax-m2.7-free, coding-minimax-m3-free, dots-3-note-preview-free, glm-4.7-flash-free, hy3-free, intern-s2-free, k2.6-code-preview-free, laguna-s-2.1-free, laguna-xs-2.1-free, lfm-2.5-2.6b-free, ling-3.0-flash-free, mimo-v2-flash-free, minimax-m2.7-free, nemotron-3-nano-30b-a3b-free, nemotron-3-nano-omni-30b-a3b-reasoning-free, nemotron-3-super-120b-a12b-free, nemotron-3.5-lightning-free, nemotron-nano-12b-v2-vl-free, nemotron-nano-9b-v2-free, union-alpha-free, xiaomi-mimo-v2-omni-free, xiaomi-mimo-v2-pro-free, xiaomi-mimo-v2.5-pro-free, xiaomi-mimo-v2.6-flash-free, xiaomi-mimo-v2.6-pro-free
+#    free ids: coding-glm-5.2-free, coding-glm-5.1-free, coding-kimi-k3-free, kimi-for-coding-free, north-mini-code-free, nemotron-3-ultra-550b-a55b-free, agents-a1-free, coding-glm-4.6-free, coding-glm-4.7-free, coding-glm-5-free, coding-glm-5-turbo-free, coding-glm-5.3-flash-free, coding-glm-5.3-free, coding-minimax-m2-free, coding-minimax-m2.1-free, coding-minimax-m2.5-free, coding-minimax-m2.7-free, coding-minimax-m3-free, dots-3-note-preview-free, glm-4.7-flash-free, intern-s2-free, k2.6-code-preview-free, laguna-s-2.1-free, laguna-xs-2.1-free, lfm-2.5-2.6b-free, mimo-v2-flash-free, nemotron-3-nano-omni-30b-a3b-reasoning-free, nemotron-3.5-lightning-free, xiaomi-mimo-v2.6-flash-free, xiaomi-mimo-v2.6-pro-free, gemma-4-26b-a4b-it-free, gemma-4-31b-it-free, flint-v1.0-free, nemotron-3.5-super-vl-free, xing4.0-29b-a4b-free
 claude-aihubmix() {
   if [ -z "${AIHUBMIX_API_KEY:-}" ]; then
     echo "claude-aihubmix: set AIHUBMIX_API_KEY first (configs/free-llm.env.example)" >&2
@@ -64,7 +64,7 @@ claude-zai-glm() {
 }
 
 # ── Vercel AI Gateway · card required · get a key: https://vercel.com/dashboard/ai-gateway/api-keys
-#    free ids: poolside/laguna-s-2.1-free, inclusionai/ling-3.1-flash, inclusionai/ling-3.1-flash-free, stealth/glyph-cluster
+#    free ids: poolside/laguna-s-2.1-free, stealth/glyph-cluster, nvidia/nemotron-3.5-lightning-free, reflection/beam-free
 claude-vercel-ai-gateway() {
   if [ -z "${VERCEL_AI_GATEWAY_API_KEY:-}" ]; then
     echo "claude-vercel-ai-gateway: set VERCEL_AI_GATEWAY_API_KEY first (configs/free-llm.env.example)" >&2
@@ -74,6 +74,20 @@ claude-vercel-ai-gateway() {
   ANTHROPIC_AUTH_TOKEN="$VERCEL_AI_GATEWAY_API_KEY" \
   ANTHROPIC_API_KEY="" \
   ANTHROPIC_MODEL="poolside/laguna-s-2.1-free" \
+  claude "$@"
+}
+
+# ── Inferbase · get a key: https://inferbase.ai/docs/getting-started/quickstart
+#    free ids: auto
+claude-inferbase() {
+  if [ -z "${INFERBASE_API_KEY:-}" ]; then
+    echo "claude-inferbase: set INFERBASE_API_KEY first (configs/free-llm.env.example)" >&2
+    return 1
+  fi
+  ANTHROPIC_BASE_URL="https://api.inferbase.ai" \
+  ANTHROPIC_AUTH_TOKEN="$INFERBASE_API_KEY" \
+  ANTHROPIC_API_KEY="" \
+  ANTHROPIC_MODEL="auto" \
   claude "$@"
 }
 
@@ -134,7 +148,7 @@ claude-moark() {
 }
 
 # ── FreeInference (Harvard SEAS) · get a key: https://freeinference.org
-#    free ids: glm-5.3-flash, deepseek-v4-flash, qwen3.6-35b, diffusiongemma
+#    free ids: glm-5.3-flash, deepseek-v4-flash, qwen3.6-35b, minimax-m3
 claude-freeinference() {
   if [ -z "${FREEINFERENCE_API_KEY:-}" ]; then
     echo "claude-freeinference: set FREEINFERENCE_API_KEY first (configs/free-llm.env.example)" >&2
@@ -176,7 +190,7 @@ claude-routerplex() {
 }
 
 # ── abliteration.ai · get a key: https://abliteration.ai/console
-#    free ids: abliterated-model-large-v2, abliterated-model, abliterated-model-large
+#    free ids: abliterated-model-large-flash, abliterated-model-large-v2, abliterated-model, abliterated-model-large
 claude-abliteration-ai() {
   if [ -z "${ABLITERATION_AI_API_KEY:-}" ]; then
     echo "claude-abliteration-ai: set ABLITERATION_AI_API_KEY first (configs/free-llm.env.example)" >&2
@@ -185,7 +199,7 @@ claude-abliteration-ai() {
   ANTHROPIC_BASE_URL="https://api.abliteration.ai" \
   ANTHROPIC_AUTH_TOKEN="$ABLITERATION_AI_API_KEY" \
   ANTHROPIC_API_KEY="" \
-  ANTHROPIC_MODEL="abliterated-model-large-v2" \
+  ANTHROPIC_MODEL="abliterated-model-large-flash" \
   claude "$@"
 }
 

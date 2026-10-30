@@ -46,11 +46,13 @@ import httpx
 import yaml
 
 from .prober import CODEX_DONE, codex_probe_body
-from .render import CODEX_SINCE, LITELLM_BRIDGE_SINCE, litellm_command
+from .models import OPENCODE_OUTPUT_FIELD, OPENCODE_LEGACY_OUTPUT_FIELD
+from .render import CODEX_SINCE, FREE_GROUPS, LITELLM_BRIDGE_SINCE, litellm_command
 
 __all__ = ["Sentence", "SENTENCES", "Finding", "Lane", "floors", "comment_text",
            "keyed_profile", "missing_sentences", "printed_run", "printed_profile", "as_run",
-           "bare", "lanes", "point_lanes", "shape_differences", "listening", "summary", "main"]
+           "bare", "lanes", "point_lanes", "shape_differences", "listening", "summary", "main",
+           "check_opencode_session_export", "check_opencode_output_budget", "record_opencode_output_budget"]
 
 LITELLM_YAML = "configs/litellm.yaml"
 LITELLM_PROFILE = "configs/codex/litellm.config.toml"
@@ -71,6 +73,7 @@ LANE_KEY = "canary-{var}"
 # The file a Codex turn is asked to read, and what it says.
 NOTE = "the note says forty-two"
 VERDICTS = ("violation", "drift", "infra", "reworded")
+SUCCESS_VERDICTS = ("ok", "not-applicable")
 
 
 @dataclass(frozen=True)
@@ -95,8 +98,8 @@ SENTENCES: dict[str, Sentence] = {
                                      + re.escape(LITELLM_BRIDGE_SINCE) + r" on\."),
     "bridge": Sentence(LITELLM_YAML, r"The flag makes the proxy's /v1/responses — the only API "
                                      r"Codex CLI speaks — call each lane's chat completions"),
-    "groups": Sentence(LITELLM_YAML, r"a call falls back down that order when a lane runs out of "
-                                     r"quota or has no key set here — set only the keys you "
+    "groups": Sentence(LITELLM_YAML, r"(?:a call falls back down that order when a lane runs out of "
+                                     r"quota or has no key set here|pools its eligible lanes) — set only the keys you "
                                      r"have, and a lane without one is skipped\."),
     "authorization": Sentence(LITELLM_YAML, r"its keyless lane answers only a call with no "
                                             r"Authorization header, and LiteLLM sends one on "
@@ -108,6 +111,7 @@ SENTENCES: dict[str, Sentence] = {
                                        + re.escape(LITELLM_BRIDGE_SINCE)
                                        + r" or later; the file goes where Codex keeps its "
                                          r"config, ~/\.codex unless CODEX_HOME says otherwise"),
+    "selector-model": Sentence("index.html", r'id="client-configs"'),
     "no-keys": Sentence(LITELLM_PROFILE, r"A lane whose key is not set is skipped, and "
                                          r"free/nokey needs none, so the profile answers before "
                                          r"you set any\."),
@@ -134,9 +138,141 @@ SENTENCES: dict[str, Sentence] = {
 @dataclass(frozen=True)
 class Finding:
     sentence: str
-    verdict: str          # "ok" or one of VERDICTS
+    verdict: str          # one of SUCCESS_VERDICTS or VERDICTS
     versions: str
     detail: str
+
+
+def check_opencode_output_budget(records: list[dict], model: str, tokens: int) -> dict:
+    """Check actual primary requests, including conflicting token fields."""
+    requests = [r for r in records if r.get("model") == model and r.get("tools")]
+    failures = []
+    for i, request in enumerate(requests):
+        value = request.get(OPENCODE_OUTPUT_FIELD)
+        if type(value) is not int or not 0 < value <= tokens:
+            failures.append(f"request {i}: max_completion_tokens={value!r}")
+        if OPENCODE_LEGACY_OUTPUT_FIELD in request:
+            value = request[OPENCODE_LEGACY_OUTPUT_FIELD]
+            if type(value) is not int or not 0 < value <= tokens:
+                failures.append(f"request {i}: max_tokens={value!r}")
+    return {"passed": bool(requests) and not failures, "checked_requests": len(requests),
+            "tokens": tokens, "failures": failures}
+
+
+@contextmanager
+def record_opencode_output_budget(base_url: str, model: str, tokens: int):
+    """Forward unchanged requests and inspect their budgets without recording keys."""
+    records, errors = [], []
+    prefix = "/" + os.urandom(16).hex()
+    limited = threading.Event()
+
+    class Recorder(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            if not self.path.startswith(prefix + "/"):
+                self.send_error(404)
+                return
+            if limited.is_set():
+                self.send_error(429, "No further upstream requests after a rate limit")
+                return
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            try:
+                payload = json.loads(body)
+                headers = {k: v for k, v in self.headers.items()
+                           if k.lower() not in {"host", "content-length", "connection", "accept-encoding"}}
+                with httpx.Client(timeout=httpx.Timeout(95, connect=10)) as client:
+                    response = client.post(base_url.rstrip("/") + self.path[len(prefix):],
+                                           content=body, headers=headers)
+                if response.status_code == 429:
+                    limited.set()
+                records.append({**{k: payload[k] for k in ("model", OPENCODE_LEGACY_OUTPUT_FIELD, OPENCODE_OUTPUT_FIELD)
+                                   if k in payload}, "tools": bool(payload.get("tools")),
+                                "status": response.status_code})
+                self.send_response(response.status_code)
+                for key, value in response.headers.items():
+                    if key.lower() not in {"transfer-encoding", "content-length", "connection", "content-encoding"}:
+                        self.send_header(key, value)
+                self.send_header("Content-Length", str(len(response.content)))
+                self.end_headers()
+                self.wfile.write(response.content)
+            except (ValueError, httpx.HTTPError, OSError) as exc:
+                errors.append(type(exc).__name__)
+                self.send_error(502, "Request recording failed")
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Recorder)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    result = {"upstream": base_url}
+    try:
+        yield f"http://127.0.0.1:{server.server_port}{prefix}", result
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+        result.update(check_opencode_output_budget(records, model, tokens), records=records,
+                      errors=errors, rate_limited=limited.is_set())
+        result["passed"] = result["passed"] and not errors and not limited.is_set()
+
+
+def check_opencode_session_export(data: object, session_id: str, provider: str,
+                                 model: str, directory: Path, marker: str,
+                                 answer_id: str) -> dict:
+    """Require terminal native evidence from the exact isolated session."""
+    # OpenCode 2.0.28 can reconcile final text without its step_finish event.
+    # Checked 2026-10-14 against actual runs and the tagged implementation:
+    # https://github.com/anomalyco/opencode/blob/v2.0.28/packages/cli/src/run/noninteractive.ts
+    # Its session export is read anew by review.live_client on every such run.
+    failure = {'passed': False, 'completed_turn': False}
+    if not isinstance(data, dict):
+        return failure
+    info, messages = data.get('info'), data.get('messages')
+    if not isinstance(info, dict) or not isinstance(messages, list) or not messages:
+        return failure
+    if any(not isinstance(message, dict) for message in messages):
+        return failure
+    expected_model = {'providerID': provider, 'id': model}
+
+    def same_model(value):
+        return isinstance(value, dict) and all(value.get(k) == v for k, v in expected_model.items())
+
+    location = info.get('location')
+    if (not session_id or info.get('id') != session_id or not same_model(info.get('model'))
+            or not isinstance(location, dict) or location.get('directory') != str(directory.resolve())
+            or info.get('outcome') != 'succeeded'):
+        return failure
+    assistants = [message for message in messages if message.get('type') == 'assistant']
+    if not assistants or any(message.get('error') or not same_model(message.get('model'))
+                             for message in assistants):
+        return failure
+    last, idle = assistants[-1], messages[-1]
+    completed = last.get('time', {}).get('completed') if isinstance(last.get('time'), dict) else None
+    ended = idle.get('time', {}).get('created') if isinstance(idle.get('time'), dict) else None
+    if (not answer_id or last.get('id') != answer_id or last.get('finish') != 'stop'
+            or type(completed) not in (int, float) or type(ended) not in (int, float)
+            or not 0 < completed <= ended or idle.get('type') != 'idle'
+            or idle.get('outcome') != 'succeeded'):
+        return failure
+    if any(not isinstance(message.get('content'), list) or
+           any(not isinstance(part, dict) for part in message['content']) for message in assistants):
+        return failure
+    answer = ''.join(part.get('text', '') for part in last['content']
+                     if part.get('type') == 'text' and isinstance(part.get('text'), str))
+    read = False
+    for message in assistants:
+        for part in message['content']:
+            state = part.get('state')
+            if part.get('type') != 'tool' or not isinstance(state, dict) or state.get('status') != 'completed':
+                continue
+            content = state.get('content')
+            if isinstance(content, list):
+                read |= any(isinstance(item, dict) and item.get('type') == 'text'
+                            and isinstance(item.get('text'), str) and marker in item['text'] for item in content)
+    passed = bool(marker) and read and answer.strip() == marker
+    return {'passed': passed, 'completed_turn': passed,
+            'fresh_marker_in_tool_output': read, 'fresh_marker_in_answer': answer.strip() == marker,
+            'session_id': session_id, 'answer_id': answer_id, 'terminal_outcome': idle['outcome']}
 
 
 @dataclass(frozen=True)
@@ -192,6 +328,8 @@ def missing_sentences(root: Path, sentences: dict[str, Sentence] = SENTENCES) ->
         if file not in texts:
             texts[file] = comment_text((root / file).read_text(encoding="utf-8"))
         if not re.search(s.pattern, texts[file]):
+            if key == "groups" and not _groups(lanes(yaml.safe_load((root / LITELLM_YAML).read_text()))):
+                continue
             gone.append(key)
     return gone
 
@@ -249,6 +387,17 @@ def lanes(config: dict) -> list[Lane]:
                         key.removeprefix("os.environ/") if key.startswith("os.environ/") else None,
                         key if key and key != "none" and not key.startswith("os.environ/") else None))
     return out
+
+
+def _groups(lanes_: list[Lane]) -> list[str]:
+    names = {lane.name for lane in lanes_}
+    return [name for name in FREE_GROUPS if name in names]
+
+
+def _group_for_check(lanes_: list[Lane], minimum: int = 1) -> str | None:
+    counts = Counter(lane.name for lane in lanes_)
+    return next((name for name in dict.fromkeys(("free/strong", *FREE_GROUPS))
+                 if counts[name] >= minimum), None)
 
 
 def point_lanes(config: dict, base: str) -> dict:
@@ -676,14 +825,19 @@ def _check_keys_set(run: _Run, version: str, binary: str, config: Path, lanes_: 
             run.note("authorization", "drift" if bare_ or not keyless else "ok", v,
                      f"{len(keyless)} calls to keyless lanes, {len(bare_)} without "
                      f"Authorization{which}")
-            _check_bridge(run, v, served, singles)
+            _check_bridge(run, v, served, lanes_)
             _check_fallback(run, v, served, lanes_)
     except _Unstarted as exc:
         run.note("run", "violation", v, f"the printed command did not start the proxy: {exc}")
 
 
-def _check_bridge(run: _Run, v: str, served: _Lanes, singles: list[Lane]) -> None:
-    for model in (next(lane.name for lane in singles if lane.key), "free/strong"):
+def _check_bridge(run: _Run, v: str, served: _Lanes, lanes_: list[Lane]) -> None:
+    counts = Counter(lane.name for lane in lanes_)
+    singles = [lane for lane in lanes_ if counts[lane.name] == 1]
+    named = next((lane.name for lane in singles if lane.key),
+                 singles[0].name if singles else None)
+    models = dict.fromkeys(model for model in (named, _group_for_check(lanes_)) if model)
+    for model in models:
         mark = served.mark()
         body = codex_probe_body(model)
         try:
@@ -703,17 +857,29 @@ def _check_bridge(run: _Run, v: str, served: _Lanes, singles: list[Lane]) -> Non
 
 
 def _check_fallback(run: _Run, v: str, served: _Lanes, lanes_: list[Lane]) -> None:
-    """Every free/strong lane out of quota: the call falls back to free/nokey."""
-    strong = [lane for lane in lanes_ if lane.name == "free/strong"]
-    served.failing({lane.index: 429 for lane in strong})
+    """Exercise an existing fallback edge, or the sole pool when there is one."""
+    groups = _groups(lanes_)
+    if not groups:
+        claimed = re.search(SENTENCES["groups"].pattern,
+                            comment_text((run.root / LITELLM_YAML).read_text()))
+        run.note("groups", "violation" if claimed else "not-applicable", v,
+                 "the config defines no group" + (" but still claims one" if claimed else " or group claim"))
+        return
+    source, target = (groups[-2], groups[-1]) if len(groups) > 1 else (groups[0], groups[0])
+    if source != target:
+        served.failing({lane.index: 429 for lane in lanes_ if lane.name == source})
     mark = served.mark()
-    resp = _chat("free/strong")
-    answered_by = [lanes_[int(r.lane)].name for r in served.since(mark)
-                   if r.lane.isdigit() and served.status.get(int(r.lane), 200) == 200]
-    served.failing({})
-    ok = resp.status_code == 200 and answered_by and set(answered_by) == {"free/nokey"}
+    try:
+        resp = _chat(source)
+        answered_by = [lanes_[int(r.lane)].name for r in served.since(mark)
+                       if r.lane.isdigit() and served.status.get(int(r.lane), 200) == 200]
+    finally:
+        served.failing({})
+    ok = resp.status_code == 200 and answered_by and set(answered_by) == {target}
+    situation = (f"every {source} lane answering 429" if source != target else
+                 f"the sole pool {source}, with no fallback group configured")
     run.note("groups", "ok" if ok else "violation", v,
-             f"every free/strong lane answering 429: the call answered {resp.status_code}, "
+             f"{situation}: the call answered {resp.status_code}, "
              f"from {sorted(set(answered_by)) or 'no lane'}")
 
 
@@ -746,7 +912,7 @@ BENCH_SECONDS = 5
 
 def _check_policy(run: _Run, version: str, binary: str, config_json: Path, lanes_: list[Lane],
                   served: _Lanes) -> None:
-    """All but one of free/strong's lanes answer 500 and twenty calls go out
+    """All but one lane of an available pool answer 500 and twenty calls go out
     back to back: a router that reads each deployment's allowed_fails_policy
     asks every failing lane once a bench (BENCH_SECONDS) and sends the rest to
     the lane left, where 1.89's asked each five times in two seconds. The
@@ -754,18 +920,20 @@ def _check_policy(run: _Run, version: str, binary: str, config_json: Path, lanes
     through the proxy, 1.98 and 1.103 recorded one failure a request on
     2026-09-28, so a burst there benches the lanes a request at a time."""
     v = f"LiteLLM {version}"
-    strong = [lane for lane in lanes_ if lane.name == "free/strong"]
-    if len(strong) < 3:
-        run.note("policy", "infra", v, f"free/strong has {len(strong)} lanes; the check needs 3")
+    group = _group_for_check(lanes_, minimum=2)
+    if group is None:
+        run.note("policy", "not-applicable", v,
+                 "no pool has two deployments for a failing and a healthy route")
         return
-    healthy, failing = strong[0], strong[1:]
+    members = [lane for lane in lanes_ if lane.name == group]
+    healthy, failing = members[0], members[1:]
     home = run.work / f"home-router-{version}"
     home.mkdir(parents=True, exist_ok=True)
     served.failing({lane.index: 500 for lane in failing})
     mark = served.mark()
     try:
         done = subprocess.run([str(Path(binary).parent / "python"), "-c", _ROUTER_CALLS,
-                               str(config_json), "free/strong", "20", "0.05"],
+                               str(config_json), group, "20", "0.05"],
                               env={**_base_env(home), **_key_env(lanes_, keys=True)},
                               capture_output=True, text=True, timeout=600)
     except subprocess.TimeoutExpired:
@@ -790,7 +958,7 @@ def _check_policy(run: _Run, version: str, binary: str, config_json: Path, lanes
     allowed = 1 + int(took // BENCH_SECONDS)
     ok = most <= allowed and held >= 10
     run.note("policy", "ok" if ok else "violation", v,
-             f"LiteLLM's router, {len(failing)} of {len(strong)} free/strong lanes answering 500, "
+             f"LiteLLM's router, {len(failing)} of {len(members)} {group} lanes answering 500, "
              f"20 calls in {took:.1f} s: a failing lane asked at most {most} "
              f"time{'s' if most != 1 else ''} ({allowed} allowed), the other lane {held} times")
 
@@ -806,20 +974,26 @@ def _check_no_keys(run: _Run, version: str, binary: str, config: Path, lanes_: l
     home.mkdir(parents=True, exist_ok=True)
     env = {**_base_env(home), **_key_env(lanes_, keys=False)}
     mark = served.mark()
+    group = _group_for_check(lanes_)
+    if group is None or not any(lane.name == "free/nokey" for lane in lanes_):
+        run.note("no-keys", "not-applicable", v,
+                 "the config has no anonymous pool for a turn with no keys set")
+        return
     run.say(f"LiteLLM {version}, no key set: starting the proxy as the Codex profile prints it")
     try:
         with _proxy(as_run(argv, binary, str(config)), env,
                     run.work / f"proxy-nokeys-{version}.log"):
             run.say("the proxy answers")
-            resp = _chat("free/strong")
+            resp = _chat(group)
             asked = [by_index[int(r.lane)] for r in served.since(mark) if r.lane.isdigit()]
             ok = resp.status_code == 200 and asked and all(lane.key is None for lane in asked)
             named = sorted({lane.name + (" (keyed)" if lane.key else "") for lane in asked})
             run.note("no-keys", "ok" if ok else "violation", v,
-                     f"free/strong with no key set answered {resp.status_code}, from "
+                     f"{group} with no key set answered {resp.status_code}, from "
                      f"{named or 'no lane'}")
             for c in codex_versions:
                 _check_codex_turn(run, version, c, served, newest=c == codex_versions[-1])
+                _check_selector_model(run, version, c, served, lanes_)
     except _Unstarted as exc:
         run.note("codex", "violation", v, f"the profile's proxy command did not start: {exc}")
         return
@@ -912,6 +1086,42 @@ def _check_codex_setting(run: _Run, v: str, codex_version: str, litellm_version:
                  + ("as functions" if ok else "not as functions"))
 
 
+def _check_selector_model(run: _Run, litellm_version: str, codex_version: str,
+                          served: _Lanes, lanes_: list[Lane]) -> None:
+    """Run the rendered command and prove it reaches the selected deployment.
+
+    Capture proves the CLI override, not vendor availability. The floor/current
+    releases measure this CLI contract each time conformance runs.
+    """
+    page = (run.root / "index.html").read_text(encoding="utf-8")
+    match = re.search(r'<script type="application/json" id="client-configs">(.*?)</script>', page, re.S)
+    choices = json.loads(match.group(1))["codex"] if match else []
+    row = next((r for r in choices if r["route"] == "Via LiteLLM" and r["keyless"]), None)
+    if row and row.get("models"):
+        # Exercise an explicit non-default choice when the route has one. The
+        # generated command is the same value the model picker copies.
+        row = {**row, **row["models"][-1]}
+    v = f"Codex {codex_version} + LiteLLM {litellm_version}"
+    lane = next((l for l in lanes_ if row and l.name == row["model"]), None)
+    if not row or not lane:
+        run.note("selector-model", "infra", v, "no generated keyless proxy choice to exercise")
+        return
+    home, project = _codex_home(run, f"selector-{codex_version}-{litellm_version}", LITELLM_PROFILE)
+    mark = served.mark()
+    argv = shlex.split(row["command"])
+    done = _codex(run.codex[codex_version], home, project,
+        [*argv[1:], "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+         "Run `cat note.txt` and tell me what the file says."])
+    records = [r for r in served.since(mark) if r.lane.isdigit()]
+    ok = (done.returncode == 0 and NOTE in done.stdout and records
+          and all(r.lane == str(lane.index) for r in records)
+          and any(NOTE in json.dumps(r.body) for r in records[1:]))
+    run.note("selector-model", "ok" if ok else "violation", v,
+        f"{row['command']}: exit {done.returncode}; {len(records)} requests; selected lane "
+        f"{lane.index}, reached {sorted({r.lane for r in records})}; file result "
+        + ("returned" if NOTE in done.stdout else "missing"))
+
+
 def _check_bare(run: _Run, version: str, binary: str, config: Path, lanes_: list[Lane],
                 served: _Lanes, argv: list[str]) -> None:
     """The command without its advice: what the header says happens then."""
@@ -944,7 +1154,6 @@ def _check_bare(run: _Run, version: str, binary: str, config: Path, lanes_: list
 def _check_capture(run: _Run, served: _Lanes, base: str, codex_versions: list[str]) -> None:
     """The request Codex sends a lane under the profiles' settings, beside the
     one the list's run sends."""
-    probe = codex_probe_body("m")
     for c in codex_versions:
         newest = c == codex_versions[-1]
         v = f"Codex {c}"
@@ -962,6 +1171,11 @@ def _check_capture(run: _Run, served: _Lanes, base: str, codex_versions: list[st
                 run.note(sentence, "infra", v, "Codex sent the capture lane nothing")
                 continue
             if sentence == "same-request":
+                # The newest remains an exact comparison with the current
+                # probe. Older clients are compared with the legacy request
+                # the run also sends, without ignoring any extra fields.
+                probe = codex_probe_body("m", legacy_instructions=(
+                    not newest and "instructions" in sent))
                 diff = shape_differences(sent, probe, exact=newest)
                 same = ("the same fields, tools and settings as the run's request" if newest else
                         "nothing the run's request leaves out")
@@ -1072,9 +1286,11 @@ def run_checks(root: Path, litellm: dict[str, str], codex: dict[str, str],
 
 
 def summary(findings: list[Finding], litellm: list[str], codex: list[str]) -> str:
-    marks = {"ok": "✓", "violation": "✗ violation", "drift": "✗ drift", "infra": "✗ infra",
+    marks = {"ok": "✓", "not-applicable": "— not applicable", "violation": "✗ violation", "drift": "✗ drift", "infra": "✗ infra",
              "reworded": "✗ reworded"}
-    failed = [f for f in findings if f.verdict != "ok"]
+    failed = [f for f in findings if f.verdict not in SUCCESS_VERDICTS]
+    skipped = sum(f.verdict == "not-applicable" for f in findings)
+    passed = sum(f.verdict == "ok" for f in findings)
     head = [f"## What the configs say LiteLLM and Codex CLI do, run",
             "",
             f"LiteLLM {', '.join(litellm)} and Codex CLI {', '.join(codex)} — the oldest release "
@@ -1082,6 +1298,7 @@ def summary(findings: list[Finding], litellm: list[str], codex: list[str]) -> st
             "one served by the check.",
             "",
             (f"**{len(failed)} of {len(findings)} checks failed.**" if failed else
+             f"**{passed} checks held; {skipped} not applicable.**" if skipped else
              f"**All {len(findings)} checks held.**"),
             "",
             "| | Sentence | Run on | What happened |",
@@ -1134,7 +1351,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.summary:
         with args.summary.open("a", encoding="utf-8") as fh:
             fh.write(text)
-    return 1 if any(f.verdict != "ok" for f in findings) else 0
+    return 1 if any(f.verdict not in SUCCESS_VERDICTS for f in findings) else 0
 
 
 if __name__ == "__main__":

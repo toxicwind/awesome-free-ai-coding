@@ -3,7 +3,7 @@ layout: default
 title: 'SambaNova Cloud free tier (archived): what it offered, and why it left the list'
 description: 'Open models on SambaNova''s RDU hardware, OpenAI-compatible; the free tier is the one that applies while no payment method is linked, so linking a card is what ends it. Free models: deepseek, gpt-oss, gemma-4. 20 req/min, 20 req/day and 200,000 tokens/day per model on the free tier; five models…'
 permalink: /providers/sambanova-cloud/
-last_modified_at: 2026-09-23
+last_modified_at: 2026-09-27
 crumb: SambaNova Cloud
 ---
 
@@ -39,6 +39,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08. No probe reads this row any more — it left the list for good unless a reviewer brings it back; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29. No probe reads this row any more — it left the list for good unless a reviewer brings it back; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

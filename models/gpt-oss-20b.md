@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'gpt-oss-20b free: 4 providers, limits and ids, verified 2026-10-08'
-description: gpt-oss-20b is served free by Groq, NVIDIA NIM (build.nvidia.com), Regolo AI and Pollinations.AI. None asks for a card; Pollinations.AI answers with no account at all. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'gpt-oss-20b free: 4 providers, limits and ids, provider probes 2026-10-26'
+description: gpt-oss-20b is served free by Groq, NVIDIA NIM (build.nvidia.com), Regolo AI and Pollinations.AI. None asks for a card; Pollinations.AI answers with no account at all. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/gpt-oss-20b/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-28
 crumb: gpt-oss-20b
 ---
 
@@ -11,7 +11,7 @@ crumb: gpt-oss-20b
 
 # Where gpt-oss-20b is free
 
-**4 rows on the list serve `gpt-oss-20b` free:** Groq, NVIDIA NIM (build.nvidia.com), Regolo AI and Pollinations.AI. None asks for a card; Pollinations.AI answers with no account at all. The published offers were checked on 2026-10-08 and are rechecked twice a week.
+**4 rows on the list serve `gpt-oss-20b` free:** Groq, NVIDIA NIM (build.nvidia.com), Regolo AI and Pollinations.AI. None asks for a card; Pollinations.AI answers with no account at all. The providers' last scheduled probes were on 2026-10-26; their offers are rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: gpt-oss-20b
 
 ### [Groq](https://mvalentsev.github.io/awesome-free-ai-coding/providers/groq-free/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-25
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-25
 
 Fast inference against a free plan Groq publishes as a per-model rate table
 
@@ -39,7 +39,7 @@ These are the Free Plan limits for the coding models, shared by keys in the same
 
 ### [NVIDIA NIM (build.nvidia.com)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/nvidia-nim/)
 
-🔌 LLM APIs with free tier · no card · not offered in Russia, Pakistan, Bangladesh and 11 more places · verified 2026-10-08 · listed since 2026-09-24
+🔌 LLM APIs with free tier · no card · not offered in Russia, Pakistan, Bangladesh and 11 more places · last probe 2026-10-26 · listed since 2026-09-24
 
 Free endpoints for the models build.nvidia.com marks "Free Endpoint", open-weight models from several labs among them, called with a free NVIDIA Developer Program key at integrate.api.nvidia.com/v1 (OpenAI-compatible)
 
@@ -59,7 +59,7 @@ No card, but an API key requires an NVIDIA Developer Program account and phone v
 
 ### [Regolo AI](https://mvalentsev.github.io/awesome-free-ai-coding/providers/regolo/)
 
-🎁 Trials (no card when possible) · no card · verified 2026-10-08 · listed since 2026-09-27
+🎁 Trials (no card when possible) · no card · last probe 2026-10-26 · listed since 2026-09-27
 
 EU (Italian) zero-retention inference; a month of full model access on a daily token allowance, no card
 
@@ -79,13 +79,13 @@ EU (Italian) zero-retention inference; a month of full model access on a daily t
 
 ### [Pollinations.AI](https://mvalentsev.github.io/awesome-free-ai-coding/providers/pollinations/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-25
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-25
 
 Legacy open text API, no signup, OpenAI-compatible (POST text.pollinations.ai/openai), on one model
 
 - Limits, in the vendor's words: Legacy anonymous lane: Usage allowance: amount not published (period not published); scope not published
 
-The legacy keyless host lists openai-fast, GPT-OSS 20B on OVH, in the anonymous tier; the configured gpt-oss-20b alias completed a keyless POST on 2026-10-07. The current gen.pollinations.ai API requires a key and bills Pollen credits; without a key it returns 401. The former anonymous rate came from retired docs and is no longer a current published limit.
+The legacy keyless host lists openai-fast, GPT-OSS 20B on OVH, in the anonymous tier. The current gen.pollinations.ai API requires a key and bills Pollen credits; without a key it returns 401. The former anonymous rate came from retired docs and is no longer a current published limit.
 - Base URL: `https://text.pollinations.ai/openai`
 - Key: none — the lane is anonymous
 - Callable ids: `gpt-oss-20b`
@@ -93,9 +93,10 @@ The legacy keyless host lists openai-fast, GPT-OSS 20B on OVH, in the anonymous 
 ## Related models
 
 - [`gpt-oss-120b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gpt-oss-120b/) — free at Groq, Google Antigravity, Regolo AI and OVHcloud AI Endpoints
+- [`gpt-6-luna`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gpt-6-luna/) — free at Codex (ChatGPT Free)
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

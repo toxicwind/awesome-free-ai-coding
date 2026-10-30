@@ -25,10 +25,14 @@ timezone. A spend allowance still names no individually free model.
 Record whole-offer payment conditions in `access`, and conditions on specific
 callable IDs in `api.model_access` (or `client_lane.model_access`). Each uses the
 same structure: `source` (an official HTTPS page), `initial_payment_usd`, optional
-`payment_kind: card verification` (otherwise `top-up`), `topup_fee_percent`, and
+`payment_kind`, `topup_fee_percent`, and
 `until` (a timestamp with timezone, for model promotions). Omit conditions that
 do not apply. These fields generate the disclosures; do not duplicate them in
-templates or add exceptions for a particular vendor. For example:
+templates or add exceptions for a particular vendor.
+
+`payment_kind` accepts `top-up`, `card verification`, or `charge`; `top-up` is
+the default. Use `charge` when the vendor requires a settled payment without
+describing it as a credit top-up or card verification. For example:
 
 ```yaml
 model_access:
@@ -90,6 +94,12 @@ days, and the scout reports the expired ones in its pull requests, because a
 directory can grow into a feed long after someone first opened it.
 
 ## How rows are ordered
+
+`agent-cli` contains coding tools with ongoing Free usage, including completion
+allowances alongside introductory credits. `trial` contains offers funded only
+by a finite introductory grant or trial. A limited monthly allowance is still a
+recurring Free plan. Check every advertised free mode before choosing a category;
+the optional paid-plan trial does not define the permanent Free plan.
 
 `rank` sorts a row within its section — lower renders higher — and it answers one
 question: **how much work can a developer actually get done on this offer without
@@ -170,7 +180,9 @@ the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/leade
 of the index, counting current models only, `strong` within 25, `notable` below
 that but at or above the median of the current models the index scores — its
 upper half, which earns the model a page of its own and no strong mark — and no
-tier below the median or where nothing was measured. `notable` exists because
+tier below the median or where nothing was measured. An explicit `null` score in
+a readable current leaderboard clears the old tier; a missing model or unreadable
+source preserves it for review. `notable` exists because
 the top moves: on 2026-09-26 Claude Opus 5.5 set it at 57.6, and Claude Opus 4.6
 (26.4), Claude Sonnet 4.6 (24.7) and Gemini 3.5 Flash (32.6, a hair under the
 strong bar) were models readers still look for, free on the list and with no
@@ -228,11 +240,26 @@ That covers an offer that ended without notice, a row that no longer meets
 day the row came off; `reason` is the sentence the Archive prints beside it —
 lower case, no full stop — while the long account goes to `watchlist.yaml`, or
 for cause to `blocklist.yaml`. A delisted row keeps what it was published with,
-probe included, and is never probed again. It drops its connection details only
+probe included, and its verification probe is skipped. It drops its connection details only
 when its service is rejected for cause, and its page then names the service
 without linking it. Its id stays taken, since the id is its page's URL: a vendor
 that comes back is restored by removing `delisted`, and the scout reports a
 proposal under an archived row's id instead of dropping it.
+
+Returning a legacy row whose history ends in `removed` appends `restored`.
+Its original `first_seen` and the published history are preserved.
+
+The scheduled update collects current primary sources for archived offers when
+their manual review is at least 7 days old, through `freetier-archive-review`.
+The canonical `archive_review` pairs
+`checked_on` with `sources` for a completed manual review of every advertised
+free mode, including current conditions beyond the last offer's sources. The collector
+does not advance that date or restore a row. Missing dates are due immediately;
+duplicates and blocklisted services are excluded, including blocked source
+links and redirect targets. Its summary and `archive-review` artifact retain
+unavailable reads and last-offer probe findings for the reviewer. A matching
+old probe does not establish current eligibility. Source collection has a
+120-second budget; unfinished reads remain explicit in the report.
 
 ### Two rows, one service
 
@@ -288,6 +315,16 @@ Explicit unmetered usage is separate from an unpublished amount. Model-bound
 caps include their exact API IDs. Indexed documentation uses `follow` to resolve
 the current release before checking its allowance. Ended model promotions retain
 their quota evidence without advertising a current allowance.
+
+Public HTML reads try ordinary HTTP first. A confirmed browser challenge can
+start one anonymous `curl_cffi` browser-profile recovery, with a 20-second budget,
+up to 5 redirects and an 8 MiB body limit. API catalogs and completion requests,
+authenticated clients, private destinations, query strings, rate limits and gone
+pages cannot use it. Recovery supplies the vendor's original HTML and status to
+the same content checks. It never earns a verification by itself. The probe's
+`failures/page-reads/` receipts preserve both responses; the update workflow
+uploads them as `public-page-reads`. The review collector retains those attempts
+for source reads and uses ordinary HTTP for publication byte checks.
 
 Every `page-keywords` probe needs at least one keyword that disappears when the
 free tier does. Three shapes qualify:
@@ -365,8 +402,11 @@ both directions as `api.model_ids` is against a catalog and dated for the Models
 column the same way; `client_lane.no_family_ids` keeps a stealth codename out of
 the column, with the review reason in the commit message. Nothing a reader pastes is
 written from it, and validation refuses it beside an `api` block — one lane,
-one list — or on a probe that cannot tell the lane from the rest of what it
-reads: a page, or a catalog with neither `probe.lane` nor prices read.
+one list. A catalog needs `probe.lane` or zero prices read. A prose-based client
+lane instead needs a per-model identity binding and allowance on the same source
+for every ID: `model_bindings` names the model and `quotas[].model_ids` binds its
+free allowance. Both quotes are re-read; a shared credit wallet is insufficient.
+The same `client_lane.model_access.until` expires a dated client promotion.
 
 **A catalog that prices nothing takes its free marks from the vendor's own
 list.** NVIDIA's `/v1/models` answered 82 ids on 2026-09-23 with nothing beside
@@ -398,6 +438,19 @@ vendor keeps its offer on one page and its model list on another, probe the page
 that carries both, or list fewer families: an id that belongs to the free lane but
 has nothing to anchor it belongs in `api.model_ids`, which feeds the generated
 configs without making a claim on the page.
+Model names in scripts need explicit `machinery_keywords`; comments cannot keep
+a family listed. A prose-based client lane uses
+its separately checked per-model identity and allowance sources.
+
+**A short gateway ID can have a sourced model identity.** Record it in
+`api.model_bindings[ID]` or `client_lane.model_bindings[ID]`, with `family`,
+`source`, `quote` and an optional `target` model-card link on that source.
+Set `read: catalog` to bind identity text to that exact ID in a JSON catalog.
+The exact ID must already be listed. Its source text and link are checked again
+by the probe and review collector. The binding applies only to that row;
+another gateway can serve a different variant under the same short ID.
+Family matching, model pages, tiers, age reports and promotion expiry use the
+same binding. A binding cannot make a paid or unavailable ID free.
 
 **A page catalog keeps the complete picker separate from free families.**
 `page_catalog` derives `models` and `newcomers`; the registry writer saves only
@@ -475,6 +528,11 @@ expired API conditions under `ignored_ids`, records the change through the
 history writer and keeps published pages. `--check` never mutates the registry.
 If the last free ID ends, the offer moves to Archive at the vendor deadline;
 the row and all its evidence remain available.
+`remaining_free` records a separately continuing mode with its `source`, `quote`,
+`free_part` (`sum` or `unnamed`) and optional payment `access`. Its eligibility
+quote is re-read by the probe. When the last promotion ends, this evidence keeps
+the provider live with that free part and payment condition, without retaining
+an expired model ID or assigning an unconfirmed replacement.
 The hourly `expire promotions` workflow invokes `freetier-render --expire-only`,
 which writes nothing before a deadline and earns no verification fields.
 It explicitly requests a Pages build before notifying IndexNow. A manual run
@@ -528,6 +586,13 @@ the list on a row with a lane or on a sum, and `freetier-check` refuses a record
 whose family the column already names. Until 2026-09-27 these bars, too, lived in
 a maintainer's notes.
 
+Discovery checks every available catalog row marked or priced free, even when
+its ID does not match `probe.free_marker`. The marker still scopes family
+qualification; it cannot hide arrivals from review. Noncoding models, duplicate
+aliases and unresolved offers require explicit `ignored_ids` decisions with
+dated private evidence and a recheck trigger. A new zero price does not promote
+a family or establish an authenticated completion.
+
 **The configs call ids, never family names.** `configs/litellm.yaml` and
 `configs/opencode.json` are written from `api.model_ids` alone: a family names a
 model, an id is the string a request carries, and the two coincide only by
@@ -535,6 +600,12 @@ luck. Until 2026-09-25 a row with no ids had its family names written in their
 place — Cloudflare's config handed out `llama-4`, which Workers AI does not know,
 and Upstage's `solar-pro-3` for the id `solar-pro3` — so `freetier-check` now
 refuses a connectable row whose column names families with no ids beside them.
+
+An explicit catalog operation list must include `Chat Completions` for an ID
+used by an OpenAI-compatible chat configuration. The probe reports an
+incompatible list for review; absent operation metadata establishes no
+restriction. A shared free token balance does not turn a model for decisions,
+embeddings or code editing into a chat model.
 
 **Client token limits come from the catalog.** When a client's default exceeds
 the vendor's cap, record `api.model_limits[ID]` with positive `context_tokens`,
@@ -544,6 +615,46 @@ every verification compares `context_length` and
 The writers supply OpenCode's context/output limits and LiteLLM's default
 `max_tokens` for named and pooled deployments. An explicit client token request
 can override that LiteLLM default; verify affected clients with live requests.
+
+An OpenCode request budget can instead be chosen in `api.opencode_output_tokens[ID]`.
+This positive token count is a client setting, separate from the vendor's model
+limits. It writes `max_completion_tokens` into that model's request options
+and gives `max_tokens` the same budget for older clients;
+it does not supply a context window or assert an unpublished output limit.
+The probe rechecks support for this parameter in the row's catalog. Verify a
+budget with `freetier-review client`: it records the forwarded request budgets
+and checks the real tool read, final answer and completed session. Recheck on
+client or upstream changes and retain a dated vendor/client review.
+
+For a page listing paid and free models together, `probe.model_prices` binds
+the name column and at least two price columns in one exact table. A model is
+eligible only when both its input and output cells equal the declared free
+value; a free cached-input or storage cell does not qualify a paid model.
+An absent or ambiguous table asks for a model review rather than accepting
+names elsewhere on the page.
+
+Bound model tables are checked in both directions: every eligible row must be
+accounted for by a listed family, a waiting newcomer, or a sourced exclusion.
+Newcomers that lose Free eligibility are flagged before their promotion date.
+`newcomers[].table_name` binds a waiting offer to its exact table label where
+that label differs from the eventual family; it does not prove model identity.
+`models[].table_name` binds a qualified family to an exact vendor label too,
+including its variant or footnote, without making broader names cover new rows.
+For a tool without a public API, waiting choices also appear in its existing
+Connect model list without entering the qualified-family index. A waiting
+family on a prose page is checked against that current page too; its exact
+Free-plan eligibility still requires the source review.
+`probe.model_exclusions` records `name`, `source`, `quote` and `reviewed_on` for
+an exact excluded row. Its quote is checked on its own source, and an exclusion
+needs another manual review after 7 days. Missing excluded rows also require
+review. Inventory findings go to a human; they never promote models or restart
+their age automatically.
+
+For a model-by-plan table, `probe.model_plan` binds the model-name column and
+one exact plan column. Only an explicit inclusion mark in that cell qualifies
+the model; availability on another plan or elsewhere on the page does not.
+Missing or duplicate tables and duplicate model rows require review. This uses
+the same table reader as price eligibility, whose two-price requirement remains.
 
 **A key the reader has not set never becomes another of theirs.** LiteLLM gives
 an entry whose key variable is not set the `OPENAI_API_KEY` it runs with and
@@ -905,8 +1016,14 @@ which rows listed it — the list never takes back an address a search engine
 indexed or an answer cited, as it never deletes a row. The render reads the
 pages already in `models/` beside the registry to know which it published, and
 `freetier-gate` refuses a commit, a push or a run that deletes a page under
-`providers/` or `models/`. Every page under both carries `last_modified_at`, the
-newest of its rows' verified dates and history lines, which Jekyll writes into
+`providers/` or `models/`. Every page under both carries `last_modified_at`.
+The content writer advances the modification date when the
+page's substantive content changes, including limits, sources and copy; a daily
+generation stamp alone does not advance it. Existing pages retain their date
+through repeat renders and source archives. Full Git history reconciles dates
+against substantive committed changes; archives and shallow clones retain the
+recorded date. Verification dates remain the scheduled probe's provenance.
+Jekyll writes the content modification date into
 the sitemap as `<lastmod>` and into the page's structured data as
 `dateModified`. **Never edit them by hand** either.
 
@@ -1005,7 +1122,7 @@ cannot print two versions of it.
 | `history.jsonl` | **log** — every change to what the list publishes, one event a line, append-only | `registry.yaml` | `freetier-render` |
 | `announced.jsonl` | **log** — the posts the announcer has sent, append-only | `history.jsonl` | `freetier-announce` |
 | `README.md` | **generated** — the landing page GitHub shows under the file list · not on the site | `templates/README.md.j2`, `registry.yaml`, `watchlist.yaml`, `history.jsonl`, `src/freetier_radar/intelligence-index.json` | `freetier-render` |
-| `index.html` | **generated** — the Pages site's front page | `templates/index.html.j2`, `assets/model-name.js`, `registry.yaml`, `watchlist.yaml`, `history.jsonl` | `freetier-render` |
+| `index.html` | **generated** — the Pages site's front page | `templates/index.html.j2`, `assets/model-name.js`, `assets/search.js`, `registry.yaml`, `watchlist.yaml`, `history.jsonl` | `freetier-render` |
 | `configs/README.md` | **generated** — the connection table, beside the configs · not on the site | `templates/configs-README.md.j2`, `registry.yaml`, `watchlist.yaml`, `history.jsonl` | `freetier-render` |
 | `configs/opencode.json` | **generated** — the opencode config | `registry.yaml` | `freetier-render` |
 | `configs/litellm.yaml` | **generated** — the LiteLLM proxy config and its groups | `registry.yaml` | `freetier-render` |
@@ -1018,11 +1135,11 @@ cannot print two versions of it.
 | `assets/readme/*.svg` | **generated** — the README's pictures: the radar at the top, a dot per live row, and the strong models drawn against the top of the index, in each width and theme the README serves — and the radar alone, the site's mark beside its name | `registry.yaml`, `src/freetier_radar/intelligence-index.json` | `freetier-render` |
 | `providers/*.md` | **generated** — a page per row, the provider index and the page of services checked · never deleted once published | `registry.yaml`, `history.jsonl`, `watchlist.yaml`, `blocklist.yaml` | `freetier-render` |
 | `models/*.md` | **generated** — a page per widely served or strong free model, and the index of every free model · never deleted once published | `registry.yaml`, `history.jsonl` | `freetier-render` |
-| `browse.html` | **page** — the filterable table, reading index.json in the browser | `index.json`, `assets/model-name.js` | `hand` |
+| `browse.html` | **page** — the filterable table, reading index.json in the browser | `index.json`, `assets/model-name.js`, `assets/search.js` | `hand` |
 | `404.html` | **page** — what Pages serves for an address the site does not have, offering the rows that name what the address asked for | — | `hand` |
 | `assets/*.svg` | **page** — the favicon and the social preview's source | — | `hand` |
 | `assets/*.png` | **page** — the social preview | — | `hand` |
-| `assets/*.js` | **page** — shared browser model-name matching | — | `hand` |
+| `assets/*.js` | **page** — shared browser query and model-name matching | — | `hand` |
 | `eb68c254f1e03877b906ccc800002691.txt` | **page** — the IndexNow key, named after itself (indexnow.INDEXNOW_KEY) | — | `hand` |
 | `AGENTS.md` | **doc** — standing review and evidence rules for repository work · not on the site | — | `hand` |
 | `CONTRIBUTING.md` | **doc** — how the list works and how to change it; its map section is this table | `src/freetier_radar/layout.py` | `hand`, `freetier-render` |
@@ -1099,15 +1216,15 @@ uv run freetier-announce --dry-run  # print what the announcer would post, send 
 
 `freetier-review --out <private-directory>` collects evidence for a review.
 Use a git-ignored directory or one outside the repository. Run its phases in
-order: `prepare --base <commit> --head <commit>`, `sources`, `publication`,
+order: `prepare --base <commit> --head <commit>`, `sources`, `judgment`, `publication`,
 `browser`, then `report`. `publication` waits for the required workflows at that
 exact commit, saves their full logs and open PRs, and compares published bytes.
 Pages byte checks use the repository map: only files marked `published` are
 served there. Changed README files are also checked at the exact GitHub commit,
 including documentation excluded from Pages.
-For a bot verification commit, add `prepare --verification-run <update-run-id>`:
-the full successful update log must prove which commit it produced, since that
-push runs its checks and IndexNow inside the update instead of starting CI.
+For a bot verification or expiry commit, add `prepare --verification-run <producer-run-id>`:
+the full successful writer log must prove which commit it produced, since that
+push runs its checks and IndexNow inside the writer instead of starting CI.
 It prints workflow updates only when their state changes. Run the emitted
 `browser.js` with Playwright's `browser_run_code_unsafe` filename argument,
 save the returned JSON privately, and import it with `browser --result <file>`.
@@ -1123,6 +1240,51 @@ a fresh file, a completed tool read and its final answer. Every attempt is kept.
 The report covers collected evidence; source reads and quote matches still need
 vendor judgment, affected API lanes still need controls, and the full diff still
 needs independent review. The hooks below remain mandatory.
+
+The sources phase keeps a delisted row's last-offer checks in `historical_checks`,
+including source-read failures under `sources`. These remain visible without
+asserting current free eligibility. A URL used by a current row or explicitly
+requested still requires a successful read. Source reads and a dated withdrawal
+judgment are still required when an offer is withdrawn.
+
+Before pushing, record that independent review with `judgment --result <file>`.
+The JSON names `base`, `sha`, every changed file in sorted `paths`,
+`decision: "approve"`, and these `criteria`: `existing_behavior`, `reuse`,
+`copy`, `user_path`, `regression`, `diff`, `eligibility`. Each criterion needs a `verdict`
+(`pass` or `not-applicable`), a concrete `finding` and an `evidence` list of
+private file paths. The command imports and hashes those files; pre-push refuses
+a missing review, a different push, incomplete coverage or changed evidence.
+
+For every affected row, including unnamed free offers, `model_eligibility` covers
+the previous and resulting families (an empty list still needs a record).
+Each record names the current `plan`, `payment`,
+`regions`, `limits`, `deadline`, and `conflicts`, with `checked_at`, current
+`sources`, and private `evidence`. Source reads must succeed; records older than
+one day cannot authorize a new push. Record `conflict_status` as `none`, `resolved`,
+or `unresolved`; a resolved conflict needs a concrete `resolution` identifying the
+superseding evidence. An archival or family withdrawal cannot pass with unresolved
+free-access conflicts. Its `access_modes` must review every advertised free mode
+separately, with a name, finding and current reviewed sources. Each mode must be
+`ended` or `ineligible`; an available or unresolved mode blocks the withdrawal.
+Ending a general credit wallet does not establish that a recurring free-model
+allowance ended. A matching quote, a source-code default, a model's existence,
+or a historical promotion does not establish current free eligibility.
+
+A page catalog's `free-session` condition needs `eligibility`: a named `plan`,
+an exact model/plan `table` binding, the free cell's `value`, and a `plan_price`
+binding proving that plan's recurring price is zero. The probe checks both
+cells on the condition's source. A missing, paid, duplicate or unreadable
+cell flags the free-model claim; a matching promotion sentence cannot replace it.
+
+Review the existing output and peer rows before proposing UI changes; search
+for an existing implementation before adding one; remove repeated or unhelpful
+copy; exercise the path from choosing an offer to connecting a client; prove
+regression checks reject the old defect and allow valid controls; read the whole
+diff, including unaffected peers. A test demanding the proposed new control
+does not demonstrate its usefulness. Explain non-applicability with evidence.
+Signoffs stay in `.remember/review-signoffs/`, never in published files.
+CI and scheduled jobs run structural checks; private signoffs are enforced by
+the local pre-push hook. The report also requires the recorded judgment.
 
 **The checks run before a commit exists.** With the hooks on, `git commit`
 runs `freetier-gate pre-commit`: `freetier-check`, `freetier-render --check` and
@@ -1228,12 +1390,17 @@ runs behind a catch-all, so before this existed a malformed one could reach
 `history.jsonl` too, for the different reason that the log is the only file here
 that cannot be regenerated from another one.
 
-The `update` workflow also takes manual inputs: `dry_run` runs every phase and
+The `update` workflow also takes manual inputs: `provider_ids` selects
+space-separated provider IDs for targeted verification. Only those rows earn
+verification fields; unknown or permanently archived IDs stop the run. Resolve
+the delisting or retirement first. Targeted runs skip tier changes, scouting and
+announcements, and stop if a selected offer fails or cannot be checked. An empty
+input retains the complete scheduled run. `dry_run` runs every selected phase and
 writes nothing (the scout's report lands in the run summary instead of a PR),
 and `scout_backend` forces one LLM backend instead of walking the chain — the
 only way to exercise a fallback that never gets its turn.
 
-Python 3.12 to 3.14, httpx + pydantic v2 + Jinja2. Keep the test suite green — CI
+Python 3.12 to 3.15, httpx + pydantic v2 + Jinja2. Keep the test suite green — CI
 runs it on every push to `main` and every pull request, together with
 `freetier-check` and `freetier-render --check`: on each of those Pythons with the
 versions `uv.lock` pins, and on the oldest once more with the lowest versions

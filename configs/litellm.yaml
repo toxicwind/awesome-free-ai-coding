@@ -16,10 +16,8 @@
 # chat completions; codex/litellm.config.toml is Codex's profile for this
 # file.
 #
-# Or ask for a group instead of a model: free/strong or free/nokey pool every
-# lane of that tier, and a call falls back down that order when a lane runs
-# out of quota or has no key set here — set only the keys you have, and a lane
-# without one is skipped.
+# Or ask for a group instead of a model: free/nokey pools its eligible lanes —
+# set only the keys you have, and a lane without one is skipped.
 # Left out: Kilo Code — its keyless lane answers only a call with no Authorization header, and LiteLLM sends one on every call.
 # Left out: VLM Run Gateway — its keyless lane answers only a call with no Authorization header, and LiteLLM sends one on every call.
 # Left out: OVHcloud AI Endpoints — its keyless lane answers only a call with no Authorization header, and LiteLLM sends one on every call.
@@ -30,21 +28,9 @@ model_list:
     api_base: https://generativelanguage.googleapis.com/v1beta/openai/
     api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
     use_chat_completions_api: true
-- model_name: google-ai-studio/gemini-3.7-flash
-  litellm_params:
-    model: openai/gemini-3.7-flash
-    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
-    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
-    use_chat_completions_api: true
 - model_name: google-ai-studio/gemini-3.6-flash
   litellm_params:
     model: openai/gemini-3.6-flash
-    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
-    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: google-ai-studio/gemini-3.5-flash
-  litellm_params:
-    model: openai/gemini-3.5-flash
     api_base: https://generativelanguage.googleapis.com/v1beta/openai/
     api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
     use_chat_completions_api: true
@@ -78,15 +64,27 @@ model_list:
     api_base: https://generativelanguage.googleapis.com/v1beta/openai/
     api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
     use_chat_completions_api: true
+- model_name: google-ai-studio/gemini-2.5-pro
+  litellm_params:
+    model: openai/gemini-2.5-pro
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
+    use_chat_completions_api: true
+- model_name: google-ai-studio/gemini-2.5-flash
+  litellm_params:
+    model: openai/gemini-2.5-flash
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
+    use_chat_completions_api: true
+- model_name: google-ai-studio/gemini-2.5-flash-lite
+  litellm_params:
+    model: openai/gemini-2.5-flash-lite
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
+    use_chat_completions_api: true
 - model_name: openrouter-free/nvidia/nemotron-3-ultra-550b-a55b:free
   litellm_params:
     model: openai/nvidia/nemotron-3-ultra-550b-a55b:free
-    api_base: https://openrouter.ai/api/v1
-    api_key: os.environ/OPENROUTER_API_KEY
-    use_chat_completions_api: true
-- model_name: openrouter-free/nvidia/nemotron-3-super-120b-a12b:free
-  litellm_params:
-    model: openai/nvidia/nemotron-3-super-120b-a12b:free
     api_base: https://openrouter.ai/api/v1
     api_key: os.environ/OPENROUTER_API_KEY
     use_chat_completions_api: true
@@ -150,12 +148,6 @@ model_list:
     api_base: https://openrouter.ai/api/v1
     api_key: os.environ/OPENROUTER_API_KEY
     use_chat_completions_api: true
-- model_name: openrouter-free/inclusionai/ling-3.0-flash-sante:free
-  litellm_params:
-    model: openai/inclusionai/ling-3.0-flash-sante:free
-    api_base: https://openrouter.ai/api/v1
-    api_key: os.environ/OPENROUTER_API_KEY
-    use_chat_completions_api: true
 - model_name: openrouter-free/liquid/lfm-2.5-2.6b:free
   litellm_params:
     model: openai/liquid/lfm-2.5-2.6b:free
@@ -168,13 +160,24 @@ model_list:
     api_base: https://openrouter.ai/api/v1
     api_key: os.environ/OPENROUTER_API_KEY
     use_chat_completions_api: true
-- model_name: openrouter-free/apodex/apodex-1.1-mini:free
+- model_name: openrouter-free/nvidia/nemotron-3.5-super-vl:free
   litellm_params:
-    model: openai/apodex/apodex-1.1-mini:free
+    model: openai/nvidia/nemotron-3.5-super-vl:free
     api_base: https://openrouter.ai/api/v1
     api_key: os.environ/OPENROUTER_API_KEY
     use_chat_completions_api: true
-    max_tokens: 235929
+- model_name: openrouter-free/xingchen-agi/xing4.0-29b-a4b:free
+  litellm_params:
+    model: openai/xingchen-agi/xing4.0-29b-a4b:free
+    api_base: https://openrouter.ai/api/v1
+    api_key: os.environ/OPENROUTER_API_KEY
+    use_chat_completions_api: true
+- model_name: openrouter-free/recursive/flint-v1.0:free
+  litellm_params:
+    model: openai/recursive/flint-v1.0:free
+    api_base: https://openrouter.ai/api/v1
+    api_key: os.environ/OPENROUTER_API_KEY
+    use_chat_completions_api: true
 - model_name: groq-free/openai/gpt-oss-120b
   litellm_params:
     model: openai/openai/gpt-oss-120b
@@ -253,18 +256,6 @@ model_list:
     api_base: https://router.requesty.ai/v1
     api_key: os.environ/REQUESTY_API_KEY
     use_chat_completions_api: true
-- model_name: nvidia-nim/moonshotai/kimi-k3
-  litellm_params:
-    model: openai/moonshotai/kimi-k3
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
-- model_name: nvidia-nim/z-ai/glm-5.3
-  litellm_params:
-    model: openai/z-ai/glm-5.3
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
 - model_name: nvidia-nim/z-ai/glm-5.3-flash
   litellm_params:
     model: openai/z-ai/glm-5.3-flash
@@ -280,12 +271,6 @@ model_list:
 - model_name: nvidia-nim/nvidia/nemotron-3-ultra-550b-a55b
   litellm_params:
     model: openai/nvidia/nemotron-3-ultra-550b-a55b
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
-- model_name: nvidia-nim/nvidia/nemotron-3-super-120b-a12b
-  litellm_params:
-    model: openai/nvidia/nemotron-3-super-120b-a12b
     api_base: https://integrate.api.nvidia.com/v1
     api_key: os.environ/NVIDIA_NIM_API_KEY
     use_chat_completions_api: true
@@ -343,6 +328,36 @@ model_list:
     api_base: https://integrate.api.nvidia.com/v1
     api_key: os.environ/NVIDIA_NIM_API_KEY
     use_chat_completions_api: true
+- model_name: nvidia-nim/nvidia/nemotron-3.5-super-vl-120b-a12b
+  litellm_params:
+    model: openai/nvidia/nemotron-3.5-super-vl-120b-a12b
+    api_base: https://integrate.api.nvidia.com/v1
+    api_key: os.environ/NVIDIA_NIM_API_KEY
+    use_chat_completions_api: true
+- model_name: nvidia-nim/stepfun-ai/step-5-preview
+  litellm_params:
+    model: openai/stepfun-ai/step-5-preview
+    api_base: https://integrate.api.nvidia.com/v1
+    api_key: os.environ/NVIDIA_NIM_API_KEY
+    use_chat_completions_api: true
+- model_name: nvidia-nim/minimaxai/minimax-m3.1-flash
+  litellm_params:
+    model: openai/minimaxai/minimax-m3.1-flash
+    api_base: https://integrate.api.nvidia.com/v1
+    api_key: os.environ/NVIDIA_NIM_API_KEY
+    use_chat_completions_api: true
+- model_name: nvidia-nim/nvidia/nemotron-3.5-bolt-e4b
+  litellm_params:
+    model: openai/nvidia/nemotron-3.5-bolt-e4b
+    api_base: https://integrate.api.nvidia.com/v1
+    api_key: os.environ/NVIDIA_NIM_API_KEY
+    use_chat_completions_api: true
+- model_name: nvidia-nim/mistralai/mistral-large-4-1t-a52b
+  litellm_params:
+    model: openai/mistralai/mistral-large-4-1t-a52b
+    api_base: https://integrate.api.nvidia.com/v1
+    api_key: os.environ/NVIDIA_NIM_API_KEY
+    use_chat_completions_api: true
 - model_name: aihubmix/coding-glm-5.2-free
   litellm_params:
     model: openai/coding-glm-5.2-free
@@ -367,21 +382,9 @@ model_list:
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
-- model_name: aihubmix/xiaomi-mimo-v2.5-free
-  litellm_params:
-    model: openai/xiaomi-mimo-v2.5-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
 - model_name: aihubmix/north-mini-code-free
   litellm_params:
     model: openai/north-mini-code-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/ling-3.0-tiny-free
-  litellm_params:
-    model: openai/ling-3.0-tiny-free
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
@@ -475,12 +478,6 @@ model_list:
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
-- model_name: aihubmix/hy3-free
-  litellm_params:
-    model: openai/hy3-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
 - model_name: aihubmix/intern-s2-free
   litellm_params:
     model: openai/intern-s2-free
@@ -511,27 +508,9 @@ model_list:
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
-- model_name: aihubmix/ling-3.0-flash-free
-  litellm_params:
-    model: openai/ling-3.0-flash-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
 - model_name: aihubmix/mimo-v2-flash-free
   litellm_params:
     model: openai/mimo-v2-flash-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/minimax-m2.7-free
-  litellm_params:
-    model: openai/minimax-m2.7-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/nemotron-3-nano-30b-a3b-free
-  litellm_params:
-    model: openai/nemotron-3-nano-30b-a3b-free
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
@@ -541,51 +520,9 @@ model_list:
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
-- model_name: aihubmix/nemotron-3-super-120b-a12b-free
-  litellm_params:
-    model: openai/nemotron-3-super-120b-a12b-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
 - model_name: aihubmix/nemotron-3.5-lightning-free
   litellm_params:
     model: openai/nemotron-3.5-lightning-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/nemotron-nano-12b-v2-vl-free
-  litellm_params:
-    model: openai/nemotron-nano-12b-v2-vl-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/nemotron-nano-9b-v2-free
-  litellm_params:
-    model: openai/nemotron-nano-9b-v2-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/union-alpha-free
-  litellm_params:
-    model: openai/union-alpha-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/xiaomi-mimo-v2-omni-free
-  litellm_params:
-    model: openai/xiaomi-mimo-v2-omni-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/xiaomi-mimo-v2-pro-free
-  litellm_params:
-    model: openai/xiaomi-mimo-v2-pro-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-- model_name: aihubmix/xiaomi-mimo-v2.5-pro-free
-  litellm_params:
-    model: openai/xiaomi-mimo-v2.5-pro-free
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
@@ -598,6 +535,36 @@ model_list:
 - model_name: aihubmix/xiaomi-mimo-v2.6-pro-free
   litellm_params:
     model: openai/xiaomi-mimo-v2.6-pro-free
+    api_base: https://aihubmix.com/v1
+    api_key: os.environ/AIHUBMIX_API_KEY
+    use_chat_completions_api: true
+- model_name: aihubmix/gemma-4-26b-a4b-it-free
+  litellm_params:
+    model: openai/gemma-4-26b-a4b-it-free
+    api_base: https://aihubmix.com/v1
+    api_key: os.environ/AIHUBMIX_API_KEY
+    use_chat_completions_api: true
+- model_name: aihubmix/gemma-4-31b-it-free
+  litellm_params:
+    model: openai/gemma-4-31b-it-free
+    api_base: https://aihubmix.com/v1
+    api_key: os.environ/AIHUBMIX_API_KEY
+    use_chat_completions_api: true
+- model_name: aihubmix/flint-v1.0-free
+  litellm_params:
+    model: openai/flint-v1.0-free
+    api_base: https://aihubmix.com/v1
+    api_key: os.environ/AIHUBMIX_API_KEY
+    use_chat_completions_api: true
+- model_name: aihubmix/nemotron-3.5-super-vl-free
+  litellm_params:
+    model: openai/nemotron-3.5-super-vl-free
+    api_base: https://aihubmix.com/v1
+    api_key: os.environ/AIHUBMIX_API_KEY
+    use_chat_completions_api: true
+- model_name: aihubmix/xing4.0-29b-a4b-free
+  litellm_params:
+    model: openai/xing4.0-29b-a4b-free
     api_base: https://aihubmix.com/v1
     api_key: os.environ/AIHUBMIX_API_KEY
     use_chat_completions_api: true
@@ -661,21 +628,9 @@ model_list:
     api_base: https://api.llm7.io/v1
     api_key: os.environ/LLM7_API_KEY
     use_chat_completions_api: true
-- model_name: llm7/minimax-m2.7
-  litellm_params:
-    model: openai/minimax-m2.7
-    api_base: https://api.llm7.io/v1
-    api_key: os.environ/LLM7_API_KEY
-    use_chat_completions_api: true
 - model_name: llmtr/nvidia/nemotron-3-ultra-550b-a55b
   litellm_params:
     model: openai/nvidia/nemotron-3-ultra-550b-a55b
-    api_base: https://llmtr.com/v1
-    api_key: os.environ/LLMTR_API_KEY
-    use_chat_completions_api: true
-- model_name: llmtr/nvidia/nemotron-3-super-120b-a12b
-  litellm_params:
-    model: openai/nvidia/nemotron-3-super-120b-a12b
     api_base: https://llmtr.com/v1
     api_key: os.environ/LLMTR_API_KEY
     use_chat_completions_api: true
@@ -686,21 +641,6 @@ model_list:
     api_key: os.environ/LLMTR_API_KEY
     use_chat_completions_api: true
     max_tokens: 16384
-- model_name: llmtr/poolside/laguna-xs-2.1
-  litellm_params:
-    model: openai/poolside/laguna-xs-2.1
-    api_base: https://llmtr.com/v1
-    api_key: os.environ/LLMTR_API_KEY
-    use_chat_completions_api: true
-- model_name: llmtr/inclusionai/ling-3.1-flash
-  litellm_params:
-    model: openai/inclusionai/ling-3.1-flash
-    api_base: https://llmtr.com/v1
-    api_key: os.environ/LLMTR_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    access: free until 2026-10-13 19:00+03:00
-    source: https://llmtr.com/models/inclusionai/ling-3.1-flash
 - model_name: llmtr/agnes/agnes-3.0-flash
   litellm_params:
     model: openai/agnes/agnes-3.0-flash
@@ -713,26 +653,102 @@ model_list:
     api_base: https://llmtr.com/v1
     api_key: os.environ/LLMTR_API_KEY
     use_chat_completions_api: true
-- model_name: llmtr/tesseracted/kolibri-1
+- model_name: llmtr/heabsy/qwen3.8-27b-heabsy-free
   litellm_params:
-    model: openai/tesseracted/kolibri-1
-    api_base: https://llmtr.com/v1
-    api_key: os.environ/LLMTR_API_KEY
-    use_chat_completions_api: true
-    max_tokens: 16384
-  model_info:
-    access: free until 2026-10-09 23:59+03:00
-    source: https://llmtr.com/models/tesseracted/kolibri-1
-- model_name: llmtr/apodex/apodex-1.1-mini-free
-  litellm_params:
-    model: openai/apodex/apodex-1.1-mini-free
+    model: openai/heabsy/qwen3.8-27b-heabsy-free
     api_base: https://llmtr.com/v1
     api_key: os.environ/LLMTR_API_KEY
     use_chat_completions_api: true
     max_tokens: 32768
   model_info:
-    access: free until 2026-10-10 23:59+03:00
-    source: https://llmtr.com/models/apodex/apodex-1.1-mini-free
+    access: free until 2026-11-02 00:00+03:00
+    source: https://llmtr.com/models/heabsy/qwen3.8-27b-heabsy-free
+- model_name: llmtr/nvidia/nemotron-3.5-super-vl-free
+  litellm_params:
+    model: openai/nvidia/nemotron-3.5-super-vl-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+- model_name: llmtr/ifm/jais-3-mova-36b-a4b
+  litellm_params:
+    model: openai/ifm/jais-3-mova-36b-a4b
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 524288
+  model_info:
+    access: free until 2026-11-05 23:59+03:00
+    source: https://llmtr.com/models/ifm/jais-3-mova-36b-a4b
+- model_name: llmtr/ifm/k2-horizon-375b-a23b
+  litellm_params:
+    model: openai/ifm/k2-horizon-375b-a23b
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 524288
+  model_info:
+    access: free until 2026-11-05 23:59+03:00
+    source: https://llmtr.com/models/ifm/k2-horizon-375b-a23b
+- model_name: llmtr/minimax/minimax-m3.1-flash-free
+  litellm_params:
+    model: openai/minimax/minimax-m3.1-flash-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 524288
+  model_info:
+    access: free until 2026-11-02 23:59+03:00
+    source: https://llmtr.com/models/minimax/minimax-m3.1-flash-free
+- model_name: llmtr/internlm/intern-s2-free
+  litellm_params:
+    model: openai/internlm/intern-s2-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 262144
+  model_info:
+    access: free until 2026-10-31 23:59+03:00
+    source: https://llmtr.com/models/internlm/intern-s2-free
+- model_name: llmtr/internlm/atria-dawn-free
+  litellm_params:
+    model: openai/internlm/atria-dawn-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 524288
+  model_info:
+    access: free until 2026-10-31 23:59+03:00
+    source: https://llmtr.com/models/internlm/atria-dawn-free
+- model_name: llmtr/internlm/atria-dawn-preview-free
+  litellm_params:
+    model: openai/internlm/atria-dawn-preview-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 524288
+  model_info:
+    access: free until 2026-10-31 23:59+03:00
+    source: https://llmtr.com/models/internlm/atria-dawn-preview-free
+- model_name: llmtr/internlm/agents-a1-free
+  litellm_params:
+    model: openai/internlm/agents-a1-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 262144
+  model_info:
+    access: free until 2026-10-31 23:59+03:00
+    source: https://llmtr.com/models/internlm/agents-a1-free
+- model_name: llmtr/internlm/sage-a1.5-free
+  litellm_params:
+    model: openai/internlm/sage-a1.5-free
+    api_base: https://llmtr.com/v1
+    api_key: os.environ/LLMTR_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 262144
+  model_info:
+    access: free until 2026-10-31 23:59+03:00
+    source: https://llmtr.com/models/internlm/sage-a1.5-free
 - model_name: llmtech/nvidia/Qwen3.8-27B-NVFP4
   litellm_params:
     model: openai/nvidia/Qwen3.8-27B-NVFP4
@@ -745,21 +761,21 @@ model_list:
     api_base: https://ai-gateway.vercel.sh/v1
     api_key: os.environ/VERCEL_AI_GATEWAY_API_KEY
     use_chat_completions_api: true
-- model_name: vercel-ai-gateway/inclusionai/ling-3.1-flash
-  litellm_params:
-    model: openai/inclusionai/ling-3.1-flash
-    api_base: https://ai-gateway.vercel.sh/v1
-    api_key: os.environ/VERCEL_AI_GATEWAY_API_KEY
-    use_chat_completions_api: true
-- model_name: vercel-ai-gateway/inclusionai/ling-3.1-flash-free
-  litellm_params:
-    model: openai/inclusionai/ling-3.1-flash-free
-    api_base: https://ai-gateway.vercel.sh/v1
-    api_key: os.environ/VERCEL_AI_GATEWAY_API_KEY
-    use_chat_completions_api: true
 - model_name: vercel-ai-gateway/stealth/glyph-cluster
   litellm_params:
     model: openai/stealth/glyph-cluster
+    api_base: https://ai-gateway.vercel.sh/v1
+    api_key: os.environ/VERCEL_AI_GATEWAY_API_KEY
+    use_chat_completions_api: true
+- model_name: vercel-ai-gateway/nvidia/nemotron-3.5-lightning-free
+  litellm_params:
+    model: openai/nvidia/nemotron-3.5-lightning-free
+    api_base: https://ai-gateway.vercel.sh/v1
+    api_key: os.environ/VERCEL_AI_GATEWAY_API_KEY
+    use_chat_completions_api: true
+- model_name: vercel-ai-gateway/reflection/beam-free
+  litellm_params:
+    model: openai/reflection/beam-free
     api_base: https://ai-gateway.vercel.sh/v1
     api_key: os.environ/VERCEL_AI_GATEWAY_API_KEY
     use_chat_completions_api: true
@@ -805,9 +821,9 @@ model_list:
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
-- model_name: alibaba-model-studio/deepseek-v4-flash
+- model_name: alibaba-model-studio/deepseek-v4-flash-0731
   litellm_params:
-    model: openai/deepseek-v4-flash
+    model: openai/deepseek-v4-flash-0731
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
@@ -829,18 +845,6 @@ model_list:
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-coder-plus
-  litellm_params:
-    model: openai/qwen3-coder-plus
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-coder-next
-  litellm_params:
-    model: openai/qwen3-coder-next
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
 - model_name: alibaba-model-studio/qwen3.7-max
   litellm_params:
     model: openai/qwen3.7-max
@@ -856,12 +860,6 @@ model_list:
 - model_name: alibaba-model-studio/qwen3.7-flash
   litellm_params:
     model: openai/qwen3.7-flash
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3.6-max-preview
-  litellm_params:
-    model: openai/qwen3.6-max-preview
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
@@ -925,93 +923,9 @@ model_list:
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-max
-  litellm_params:
-    model: openai/qwen3-max
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
 - model_name: alibaba-model-studio/qwen3-coder-flash
   litellm_params:
     model: openai/qwen3-coder-flash
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-coder-480b-a35b-instruct
-  litellm_params:
-    model: openai/qwen3-coder-480b-a35b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-coder-30b-a3b-instruct
-  litellm_params:
-    model: openai/qwen3-coder-30b-a3b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-next-80b-a3b-thinking
-  litellm_params:
-    model: openai/qwen3-next-80b-a3b-thinking
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-next-80b-a3b-instruct
-  litellm_params:
-    model: openai/qwen3-next-80b-a3b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-235b-a22b-thinking-2507
-  litellm_params:
-    model: openai/qwen3-235b-a22b-thinking-2507
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-235b-a22b-instruct-2507
-  litellm_params:
-    model: openai/qwen3-235b-a22b-instruct-2507
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-235b-a22b
-  litellm_params:
-    model: openai/qwen3-235b-a22b
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-30b-a3b-thinking-2507
-  litellm_params:
-    model: openai/qwen3-30b-a3b-thinking-2507
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-30b-a3b-instruct-2507
-  litellm_params:
-    model: openai/qwen3-30b-a3b-instruct-2507
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-30b-a3b
-  litellm_params:
-    model: openai/qwen3-30b-a3b
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-32b
-  litellm_params:
-    model: openai/qwen3-32b
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-14b
-  litellm_params:
-    model: openai/qwen3-14b
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-8b
-  litellm_params:
-    model: openai/qwen3-8b
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
@@ -1033,99 +947,9 @@ model_list:
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen-turbo
-  litellm_params:
-    model: openai/qwen-turbo
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwq-plus
-  litellm_params:
-    model: openai/qwq-plus
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qvq-max
-  litellm_params:
-    model: openai/qvq-max
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
 - model_name: alibaba-model-studio/qwen3-vl-plus
   litellm_params:
     model: openai/qwen3-vl-plus
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-flash
-  litellm_params:
-    model: openai/qwen3-vl-flash
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-235b-a22b-thinking
-  litellm_params:
-    model: openai/qwen3-vl-235b-a22b-thinking
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-235b-a22b-instruct
-  litellm_params:
-    model: openai/qwen3-vl-235b-a22b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-32b-thinking
-  litellm_params:
-    model: openai/qwen3-vl-32b-thinking
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-32b-instruct
-  litellm_params:
-    model: openai/qwen3-vl-32b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-30b-a3b-thinking
-  litellm_params:
-    model: openai/qwen3-vl-30b-a3b-thinking
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-30b-a3b-instruct
-  litellm_params:
-    model: openai/qwen3-vl-30b-a3b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-8b-thinking
-  litellm_params:
-    model: openai/qwen3-vl-8b-thinking
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen3-vl-8b-instruct
-  litellm_params:
-    model: openai/qwen3-vl-8b-instruct
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen-vl-max
-  litellm_params:
-    model: openai/qwen-vl-max
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/qwen-vl-plus
-  litellm_params:
-    model: openai/qwen-vl-plus
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: alibaba-model-studio/deepseek-v3.2
-  litellm_params:
-    model: openai/deepseek-v3.2
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
     use_chat_completions_api: true
@@ -1134,12 +958,6 @@ model_list:
     model: openai/glm-5.1
     api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-- model_name: bazaarlink/qwen/qwen3.7-flash:free
-  litellm_params:
-    model: openai/qwen/qwen3.7-flash:free
-    api_base: https://api.bazaarlink.ai/v1
-    api_key: os.environ/BAZAARLINK_API_KEY
     use_chat_completions_api: true
 - model_name: bazaarlink/deepseek/deepseek-v4-flash-0731free:free
   litellm_params:
@@ -1152,6 +970,42 @@ model_list:
     model: openai/auto:free
     api_base: https://api.bazaarlink.ai/v1
     api_key: os.environ/BAZAARLINK_API_KEY
+    use_chat_completions_api: true
+- model_name: bazaarlink/nvidia/nemotron-3.5-lightning-free:free
+  litellm_params:
+    model: openai/nvidia/nemotron-3.5-lightning-free:free
+    api_base: https://api.bazaarlink.ai/v1
+    api_key: os.environ/BAZAARLINK_API_KEY
+    use_chat_completions_api: true
+- model_name: bazaarlink/reflection/beam-free:free
+  litellm_params:
+    model: openai/reflection/beam-free:free
+    api_base: https://api.bazaarlink.ai/v1
+    api_key: os.environ/BAZAARLINK_API_KEY
+    use_chat_completions_api: true
+- model_name: bazaarlink/reflection/beam:free
+  litellm_params:
+    model: openai/reflection/beam:free
+    api_base: https://api.bazaarlink.ai/v1
+    api_key: os.environ/BAZAARLINK_API_KEY
+    use_chat_completions_api: true
+- model_name: bazaarlink/stealth/glyph-cluster:free
+  litellm_params:
+    model: openai/stealth/glyph-cluster:free
+    api_base: https://api.bazaarlink.ai/v1
+    api_key: os.environ/BAZAARLINK_API_KEY
+    use_chat_completions_api: true
+- model_name: bazaarlink/qwen/qwen3.7-flash:free
+  litellm_params:
+    model: openai/qwen/qwen3.7-flash:free
+    api_base: https://api.bazaarlink.ai/v1
+    api_key: os.environ/BAZAARLINK_API_KEY
+    use_chat_completions_api: true
+- model_name: inferbase/auto
+  litellm_params:
+    model: openai/auto
+    api_base: https://api.inferbase.ai/v1
+    api_key: os.environ/INFERBASE_API_KEY
     use_chat_completions_api: true
 - model_name: nous-portal/stepfun/step-3.7-flash:free
   litellm_params:
@@ -1171,36 +1025,34 @@ model_list:
     api_base: https://inference-api.nousresearch.com/v1
     api_key: os.environ/NOUS_PORTAL_API_KEY
     use_chat_completions_api: true
-- model_name: nous-portal/inclusionai/ling-3.0-flash-fin:free
-  litellm_params:
-    model: openai/inclusionai/ling-3.0-flash-fin:free
-    api_base: https://inference-api.nousresearch.com/v1
-    api_key: os.environ/NOUS_PORTAL_API_KEY
-    use_chat_completions_api: true
-- model_name: nous-portal/inclusionai/ling-3.0-flash-sante:free
-  litellm_params:
-    model: openai/inclusionai/ling-3.0-flash-sante:free
-    api_base: https://inference-api.nousresearch.com/v1
-    api_key: os.environ/NOUS_PORTAL_API_KEY
-    use_chat_completions_api: true
-- model_name: nous-portal/meituan/longcat-2.0:free
-  litellm_params:
-    model: openai/meituan/longcat-2.0:free
-    api_base: https://inference-api.nousresearch.com/v1
-    api_key: os.environ/NOUS_PORTAL_API_KEY
-    use_chat_completions_api: true
-- model_name: nous-portal/meituan/longcat-2.5-preview:free
-  litellm_params:
-    model: openai/meituan/longcat-2.5-preview:free
-    api_base: https://inference-api.nousresearch.com/v1
-    api_key: os.environ/NOUS_PORTAL_API_KEY
-    use_chat_completions_api: true
 - model_name: nous-portal/upstage/solar-mini4:free
   litellm_params:
     model: openai/upstage/solar-mini4:free
     api_base: https://inference-api.nousresearch.com/v1
     api_key: os.environ/NOUS_PORTAL_API_KEY
     use_chat_completions_api: true
+- model_name: nous-portal/reflection/beam-1.0-501b-a23b:free
+  litellm_params:
+    model: openai/reflection/beam-1.0-501b-a23b:free
+    api_base: https://inference-api.nousresearch.com/v1
+    api_key: os.environ/NOUS_PORTAL_API_KEY
+    use_chat_completions_api: true
+    max_tokens: 131072
+- model_name: nous-portal/ornith/ornith-1.5-122b:free
+  litellm_params:
+    model: openai/ornith/ornith-1.5-122b:free
+    api_base: https://inference-api.nousresearch.com/v1
+    api_key: os.environ/NOUS_PORTAL_API_KEY
+    use_chat_completions_api: true
+- model_name: iteracompute/qwen/qwen3.8-27b
+  litellm_params:
+    model: openai/qwen/qwen3.8-27b
+    api_base: https://api.iteracompute.com/v1
+    api_key: os.environ/ITERACOMPUTE_API_KEY
+    use_chat_completions_api: true
+  model_info:
+    access: free until 2026-11-24 00:00-08:00
+    source: https://iteracompute.com/free/
 - model_name: regolo/glm5.2
   litellm_params:
     model: openai/glm5.2
@@ -1222,12 +1074,6 @@ model_list:
 - model_name: regolo/apertus-70b
   litellm_params:
     model: openai/apertus-70b
-    api_base: https://api.regolo.ai/v1
-    api_key: os.environ/REGOLO_API_KEY
-    use_chat_completions_api: true
-- model_name: regolo/brick-v1-beta
-  litellm_params:
-    model: openai/brick-v1-beta
     api_base: https://api.regolo.ai/v1
     api_key: os.environ/REGOLO_API_KEY
     use_chat_completions_api: true
@@ -1363,6 +1209,18 @@ model_list:
     api_base: https://api.opper.ai/v3/compat
     api_key: os.environ/OPPER_API_KEY
     use_chat_completions_api: true
+- model_name: simplellm/free-gemma-4-E4B
+  litellm_params:
+    model: openai/free-gemma-4-E4B
+    api_base: https://api.simplellm.eu/v1
+    api_key: os.environ/SIMPLELLM_API_KEY
+    use_chat_completions_api: true
+- model_name: simplellm/free-Llama-3.1-8B-Instruct
+  litellm_params:
+    model: openai/free-Llama-3.1-8B-Instruct
+    api_base: https://api.simplellm.eu/v1
+    api_key: os.environ/SIMPLELLM_API_KEY
+    use_chat_completions_api: true
 - model_name: meganova/mistralai/Mistral-Small-3.2-24B-Instruct-2506
   litellm_params:
     model: openai/mistralai/Mistral-Small-3.2-24B-Instruct-2506
@@ -1477,29 +1335,29 @@ model_list:
     api_base: https://api.sarvam.ai/v1
     api_key: os.environ/SARVAM_API_KEY
     use_chat_completions_api: true
-- model_name: inception-labs/mercury-2.5
+- model_name: inception-labs/mercury-3
   litellm_params:
-    model: openai/mercury-2.5
+    model: openai/mercury-3
     api_base: https://api.inceptionlabs.ai/v1
     api_key: os.environ/INCEPTION_LABS_API_KEY
     use_chat_completions_api: true
-- model_name: inception-labs/mercury-2
+- model_name: novai/glm-4.7-flash
   litellm_params:
-    model: openai/mercury-2
-    api_base: https://api.inceptionlabs.ai/v1
-    api_key: os.environ/INCEPTION_LABS_API_KEY
+    model: openai/glm-4.7-flash
+    api_base: https://aiapi-pro.com/v1
+    api_key: os.environ/NOVAI_API_KEY
     use_chat_completions_api: true
-- model_name: inception-labs/mercury-edit-2
+- model_name: novai/glm-4.6v-flash
   litellm_params:
-    model: openai/mercury-edit-2
-    api_base: https://api.inceptionlabs.ai/v1
-    api_key: os.environ/INCEPTION_LABS_API_KEY
+    model: openai/glm-4.6v-flash
+    api_base: https://aiapi-pro.com/v1
+    api_key: os.environ/NOVAI_API_KEY
     use_chat_completions_api: true
-- model_name: blue-claw/auto
+- model_name: novai/glm-4.1v-thinking-flash
   litellm_params:
-    model: openai/auto
-    api_base: https://openai.blueclaw.network/v1
-    api_key: os.environ/BLUE_CLAW_API_KEY
+    model: openai/glm-4.1v-thinking-flash
+    api_base: https://aiapi-pro.com/v1
+    api_key: os.environ/NOVAI_API_KEY
     use_chat_completions_api: true
 - model_name: freeinference/glm-5.3-flash
   litellm_params:
@@ -1519,9 +1377,9 @@ model_list:
     api_base: https://freeinference.org/v1
     api_key: os.environ/FREEINFERENCE_API_KEY
     use_chat_completions_api: true
-- model_name: freeinference/diffusiongemma
+- model_name: freeinference/minimax-m3
   litellm_params:
-    model: openai/diffusiongemma
+    model: openai/minimax-m3
     api_base: https://freeinference.org/v1
     api_key: os.environ/FREEINFERENCE_API_KEY
     use_chat_completions_api: true
@@ -1573,24 +1431,6 @@ model_list:
     api_base: https://api.fireworks.ai/inference/v1
     api_key: os.environ/FIREWORKS_AI_API_KEY
     use_chat_completions_api: true
-- model_name: ollama-cloud/gpt-oss:120b
-  litellm_params:
-    model: openai/gpt-oss:120b
-    api_base: https://ollama.com/v1
-    api_key: os.environ/OLLAMA_CLOUD_API_KEY
-    use_chat_completions_api: true
-- model_name: ollama-cloud/gemma4:31b
-  litellm_params:
-    model: openai/gemma4:31b
-    api_base: https://ollama.com/v1
-    api_key: os.environ/OLLAMA_CLOUD_API_KEY
-    use_chat_completions_api: true
-- model_name: ollama-cloud/nemotron-3-ultra
-  litellm_params:
-    model: openai/nemotron-3-ultra
-    api_base: https://ollama.com/v1
-    api_key: os.environ/OLLAMA_CLOUD_API_KEY
-    use_chat_completions_api: true
 - model_name: routerplex/deepseek-v4-flash
   litellm_params:
     model: openai/deepseek-v4-flash
@@ -1614,6 +1454,12 @@ model_list:
     model: openai/kimi-k3
     api_base: https://api.wallabytoken.com/v1
     api_key: os.environ/WALLABY_API_KEY
+    use_chat_completions_api: true
+- model_name: abliteration-ai/abliterated-model-large-flash
+  litellm_params:
+    model: openai/abliterated-model-large-flash
+    api_base: https://api.abliteration.ai/v1
+    api_key: os.environ/ABLITERATION_AI_API_KEY
     use_chat_completions_api: true
 - model_name: abliteration-ai/abliterated-model-large-v2
   litellm_params:
@@ -1663,6 +1509,12 @@ model_list:
     api_base: https://api.stdcmpt.com/v1
     api_key: os.environ/STANDARDCOMPUTE_API_KEY
     use_chat_completions_api: true
+- model_name: novita/apodex/apodex-1.1-mini
+  litellm_params:
+    model: openai/apodex/apodex-1.1-mini
+    api_base: https://api.novita.ai/openai
+    api_key: os.environ/NOVITA_API_KEY
+    use_chat_completions_api: true
 - model_name: poolside/poolside/laguna-s-2.1
   litellm_params:
     model: openai/poolside/laguna-s-2.1
@@ -1705,17 +1557,47 @@ model_list:
     api_base: https://api.sailresearch.com/v1
     api_key: os.environ/SAIL_RESEARCH_API_KEY
     use_chat_completions_api: true
-- model_name: uncloseai/turboderp/Qwen3.8-27B-exl3
-  litellm_params:
-    model: openai/turboderp/Qwen3.8-27B-exl3
-    api_base: https://hermes.ai.unturf.com/v1
-    api_key: none
-    use_chat_completions_api: true
 - model_name: pollinations/gpt-oss-20b
   litellm_params:
     model: openai/gpt-oss-20b
     api_base: https://text.pollinations.ai/openai
     api_key: none
+    use_chat_completions_api: true
+- model_name: aion-labs/aion-labs/aion-3.5
+  litellm_params:
+    model: openai/aion-labs/aion-3.5
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_LABS_API_KEY
+    use_chat_completions_api: true
+- model_name: aion-labs/aion-labs/aion-3.5-mini
+  litellm_params:
+    model: openai/aion-labs/aion-3.5-mini
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_LABS_API_KEY
+    use_chat_completions_api: true
+- model_name: aion-labs/aion-labs/aion-3.0-mini
+  litellm_params:
+    model: openai/aion-labs/aion-3.0-mini
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_LABS_API_KEY
+    use_chat_completions_api: true
+- model_name: aion-labs/aion-labs/aion-3.0
+  litellm_params:
+    model: openai/aion-labs/aion-3.0
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_LABS_API_KEY
+    use_chat_completions_api: true
+- model_name: aion-labs/aion-labs/aion-2.0
+  litellm_params:
+    model: openai/aion-labs/aion-2.0
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_LABS_API_KEY
+    use_chat_completions_api: true
+- model_name: aion-labs/aion-labs/aion-rp-llama-3.1-8b
+  litellm_params:
+    model: openai/aion-labs/aion-rp-llama-3.1-8b
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_LABS_API_KEY
     use_chat_completions_api: true
 - model_name: bytez/Qwen/Qwen3-4B
   litellm_params:
@@ -1728,12 +1610,6 @@ model_list:
     model: openai/qwen/qwen3.5-4b-free
     api_base: https://models.mixlayer.ai/v1
     api_key: os.environ/MIXLAYER_API_KEY
-    use_chat_completions_api: true
-- model_name: yolo-auto/qwen3.8-flash
-  litellm_params:
-    model: openai/qwen3.8-flash
-    api_base: https://yolo-auto.com/v1
-    api_key: os.environ/YOLO_AUTO_API_KEY
     use_chat_completions_api: true
 - model_name: modelscope/deepseek-ai/DeepSeek-V4.1-Flash
   litellm_params:
@@ -1873,419 +1749,11 @@ model_list:
     api_base: https://api.siliconflow.cn/v1
     api_key: os.environ/SILICONFLOW_CN_API_KEY
     use_chat_completions_api: true
-- model_name: free/strong
-  litellm_params:
-    model: openai/gemini-3.8-flash
-    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
-    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/gemini-3.7-flash
-    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
-    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/gemini-3.6-flash
-    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
-    api_key: os.environ/GOOGLE_AI_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen/qwen3.8-27b
-    api_base: https://api.groq.com/openai/v1
-    api_key: os.environ/GROQ_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/moonshotai/kimi-k3
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/z-ai/glm-5.3
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/z-ai/glm-5.3-flash
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-ai/deepseek-v4.1-flash
-    api_base: https://integrate.api.nvidia.com/v1
-    api_key: os.environ/NVIDIA_NIM_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/coding-glm-5.2-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/coding-kimi-k3-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/coding-glm-5.3-flash-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/coding-glm-5.3-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/xiaomi-mimo-v2.6-flash-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/xiaomi-mimo-v2.6-pro-free
-    api_base: https://aihubmix.com/v1
-    api_key: os.environ/AIHUBMIX_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-v4-flash:free
-    api_base: https://api.routeway.ai/v1
-    api_key: os.environ/ROUTEWAY_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen/qwen3.8-27b-free
-    api_base: https://llmtr.com/v1
-    api_key: os.environ/LLMTR_API_KEY
-    use_chat_completions_api: true
-    max_tokens: 16384
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/inclusionai/ling-3.1-flash
-    api_base: https://llmtr.com/v1
-    api_key: os.environ/LLMTR_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/nvidia/Qwen3.8-27B-NVFP4
-    api_base: https://api.llmtech.eu/v1
-    api_key: lt-trial-ba1ef28c6d32ed6980678d8d
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/Qwen3.8-27B
-    api_base: https://inference.hetzner.com/api/v1
-    api_key: os.environ/HETZNER_INFERENCE_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen3.8-max
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen3.8-flash
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen3.8-2.4t-a95b
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen3.8-27b
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-v4-pro
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-v4-flash
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-v4.1-flash
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/glm-5.3
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/glm-5.2
-    api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-    api_key: os.environ/ALIBABA_MODEL_STUDIO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek/deepseek-v4-flash-0731free:free
-    api_base: https://api.bazaarlink.ai/v1
-    api_key: os.environ/BAZAARLINK_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/glm5.2
-    api_base: https://api.regolo.ai/v1
-    api_key: os.environ/REGOLO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen3.8-27b
-    api_base: https://api.regolo.ai/v1
-    api_key: os.environ/REGOLO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-v4.1-flash:free
-    api_base: https://tokenharbor.ai/v1
-    api_key: os.environ/TOKEN_HARBOR_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/mimo-v2.6-flash:free
-    api_base: https://tokenharbor.ai/v1
-    api_key: os.environ/TOKEN_HARBOR_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/glm-5.3-flash
-    api_base: https://freeinference.org/v1
-    api_key: os.environ/FREEINFERENCE_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/deepseek-v4-flash
-    api_base: https://freeinference.org/v1
-    api_key: os.environ/FREEINFERENCE_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/strong
-  litellm_params:
-    model: openai/qwen3.8-flash
-    api_base: https://yolo-auto.com/v1
-    api_key: os.environ/YOLO_AUTO_API_KEY
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
 - model_name: free/nokey
   litellm_params:
     model: openai/nvidia/Qwen3.8-27B-NVFP4
     api_base: https://api.llmtech.eu/v1
     api_key: lt-trial-ba1ef28c6d32ed6980678d8d
-    use_chat_completions_api: true
-  model_info:
-    allowed_fails_policy:
-      AuthenticationErrorAllowedFails: 0
-      InternalServerErrorAllowedFails: 0
-      RateLimitErrorAllowedFails: 0
-- model_name: free/nokey
-  litellm_params:
-    model: openai/turboderp/Qwen3.8-27B-exl3
-    api_base: https://hermes.ai.unturf.com/v1
-    api_key: none
     use_chat_completions_api: true
   model_info:
     allowed_fails_policy:
@@ -2306,6 +1774,3 @@ model_list:
 router_settings:
   routing_strategy: simple-shuffle
   num_retries: 3
-  fallbacks:
-  - free/strong:
-    - free/nokey

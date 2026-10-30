@@ -2,8 +2,12 @@
 Codex: which sentences it proves, the commands it reads off the files, the
 config it points at its own lanes, and how it tells two requests apart."""
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import httpx
+import pytest
 import yaml
 
 from freetier_radar.conformance import (ENV_EXAMPLE, Finding, _Record, _chat_answer, _foreign_keys, as_run, bare,
@@ -12,8 +16,73 @@ from freetier_radar.conformance import (ENV_EXAMPLE, Finding, _Record, _chat_ans
                                         printed_run, shape_differences, summary)
 from freetier_radar.prober import codex_probe_body
 from freetier_radar.render import CODEX_SINCE, LITELLM_BRIDGE_SINCE
+from freetier_radar.conformance import check_opencode_output_budget, record_opencode_output_budget
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_generated_client_command_changes_trigger_the_real_client_conformance_run():
+    import inspect
+    from freetier_radar.render import _site_client_configs
+    workflow = yaml.safe_load((ROOT / ".github/workflows/conformance.yml").read_text())
+    trigger = workflow.get("on", workflow.get(True))["push"]
+    source = Path(inspect.getsourcefile(_site_client_configs)).relative_to(ROOT).as_posix()
+    assert source in trigger["paths"]
+
+
+@pytest.mark.parametrize("fields, valid", [
+    ({"max_completion_tokens": 8000}, True),
+    ({"max_completion_tokens": 4096, "max_tokens": 4096}, True),
+    ({"max_completion_tokens": 32000}, False),
+    ({"max_completion_tokens": 32000, "max_tokens": 8000}, False),
+    ({"max_tokens": 8000}, False),
+    ({"max_completion_tokens": True}, False),
+    ({"max_completion_tokens": 0}, False),
+    ({"max_completion_tokens": 8000, "max_tokens": 32000}, False),
+])
+def test_opencode_output_budget_checks_both_wire_fields(fields, valid):
+    records = [{"model": "alpha", "tools": True, **fields}]
+    assert check_opencode_output_budget(records, "alpha", 8000)["passed"] is valid
+    assert not check_opencode_output_budget(records, "other-model", 8000)["passed"]
+    assert not check_opencode_output_budget([], "alpha", 8000)["passed"]
+
+
+def test_output_budget_recorder_preserves_requests_and_stops_after_429():
+    received = []
+
+    class Upstream(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            received.append((self.path, self.rfile.read(int(self.headers["Content-Length"]))))
+            self.send_response(429 if len(received) == 2 else 200)
+            self.send_header("Retry-After", "60")
+            self.end_headers()
+            self.wfile.write(b'{"upstream":true}')
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Upstream)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    body = b'{"model":"alpha","tools":[{}],"max_completion_tokens":8000}'
+    try:
+        with record_opencode_output_budget(f"http://127.0.0.1:{server.server_port}/v1",
+                                           "alpha", 8000) as (base, result):
+            with httpx.Client(trust_env=False) as client:
+                response = client.post(base + "/chat/completions", content=body)
+                assert response.status_code == 200
+                assert response.json() == {"upstream": True}
+                assert response.headers["retry-after"] == "60"
+                assert client.post(base + "/chat/completions", content=body).status_code == 429
+                assert client.post(base + "/chat/completions", content=body).status_code == 429
+        assert received == [("/v1/chat/completions", body)] * 2
+        assert not result["passed"] and result["rate_limited"]
+        assert result["checked_requests"] == 2
+        assert all("authorization" not in record for record in result["records"])
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_every_sentence_a_check_proves_is_in_its_file():
@@ -29,7 +98,7 @@ def test_a_sentence_wrapped_across_comment_lines_reads_as_one():
 
 def _copied(tmp_path: Path) -> Path:
     """The files the sentences are read from, as committed."""
-    for rel in ("configs/litellm.yaml", ENV_EXAMPLE, "CONTRIBUTING.md",
+    for rel in ("configs/litellm.yaml", ENV_EXAMPLE, "CONTRIBUTING.md", "index.html",
                 *(p.relative_to(ROOT).as_posix()
                   for p in (ROOT / "configs/codex").glob("*.config.toml"))):
         target = tmp_path / rel
@@ -171,12 +240,86 @@ def test_a_vendor_public_key_is_available_without_an_environment_variable():
     assert _foreign_keys(records, {0: lane})
 
 
-def test_the_committed_config_has_the_groups_the_checks_use():
-    got = lanes(yaml.safe_load((ROOT / "configs/litellm.yaml").read_text(encoding="utf-8")))
-    strong = [lane for lane in got if lane.name == "free/strong"]
-    nokey = [lane for lane in got if lane.name == "free/nokey"]
-    assert len(strong) >= 3 and any(lane.key is None for lane in nokey)
-    assert any(lane.key and sum(x.name == lane.name for x in got) == 1 for lane in got)
+def test_bridge_requests_an_existing_pool_when_no_strong_pool_is_generated(tmp_path, monkeypatch):
+    import freetier_radar.conformance as conformance
+    got = lanes({"model_list": [
+        {"model_name": "named", "litellm_params": {"model": "openai/model", "api_key": "os.environ/TEST_KEY"}},
+        {"model_name": "free/nokey", "litellm_params": {"model": "openai/one", "api_key": "none"}},
+        {"model_name": "free/nokey", "litellm_params": {"model": "openai/two", "api_key": "none"}},
+    ]})
+    requests, records = [], []
+
+    class Proxy(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            requests.append(body["model"])
+            ok = body["model"] in {lane.name for lane in got}
+            self.send_response(200 if ok else 404)
+            self.send_header("Content-Type", "text/event-stream" if ok else "application/json")
+            self.end_headers()
+            if ok:
+                lane = next(lane for lane in got if lane.name == body["model"])
+                records.append(_Record(str(lane.index), "/v1/chat/completions", "", body))
+                answer = {"type": "response.completed", "response": {"status": "completed"}}
+                self.wfile.write(("data: " + json.dumps(answer, separators=(",", ":")) + "\n\n").encode())
+            else:
+                self.wfile.write(b'{"error":"model is not configured"}')
+
+    class Served:
+        status = {}
+
+        def mark(self):
+            return len(records)
+
+        def since(self, mark):
+            return records[mark:]
+
+        def failing(self, statuses):
+            self.status = statuses
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Proxy)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setattr(conformance, "PROXY_PORT", server.server_port)
+    run = conformance._Run(tmp_path, tmp_path, {}, {})
+    try:
+        conformance._check_bridge(run, "test", Served(), got)
+        conformance._check_fallback(run, "test", Served(), got)
+        assert all(f.verdict == "ok" for f in run.findings)
+        assert requests == ["named", "free/nokey", "free/nokey"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize("claimed", [False, True])
+def test_absent_groups_are_not_reported_as_successful_fallbacks(tmp_path, monkeypatch, claimed):
+    import freetier_radar.conformance as conformance
+    from freetier_radar.render import _litellm_groups_note
+    config = tmp_path / "configs/litellm.yaml"
+    config.parent.mkdir()
+    config.write_text((_litellm_groups_note(["free/nokey"]) if claimed else "") + "model_list: []\n")
+    monkeypatch.setattr(conformance, "_chat", lambda *args: pytest.fail("no configured pool"))
+    run = conformance._Run(tmp_path, tmp_path, {}, {})
+    conformance._check_fallback(run, "test", None, [])
+    assert run.findings[0].verdict == ("violation" if claimed else "not-applicable")
+    assert conformance.missing_sentences(tmp_path, {"groups": conformance.SENTENCES["groups"]}) == []
+
+
+def test_cooldown_benchmark_reports_when_no_pool_can_supply_two_routes(tmp_path, monkeypatch):
+    import freetier_radar.conformance as conformance
+    got = lanes({"model_list": [{"model_name": "free/nokey", "litellm_params": {
+        "model": "openai/one", "api_key": "none"}}]})
+    monkeypatch.setattr(conformance.subprocess, "run", lambda *args, **kwargs: pytest.fail("no routing pair"))
+    run = conformance._Run(tmp_path, tmp_path, {}, {})
+    conformance._check_policy(run, "test", "unused", tmp_path / "unused.json", got, None)
+    assert run.findings[0].verdict == "not-applicable"
+    text = summary(run.findings, ["test"], ["test"])
+    assert "0 checks held; 1 not applicable" in text and "All 1 checks held" not in text
 
 
 def test_the_request_codex_sends_is_held_to_the_runs_whole():
@@ -195,10 +338,11 @@ def test_the_request_codex_sends_is_held_to_the_runs_whole():
 
 
 def test_an_older_codex_is_held_only_to_asking_nothing_the_run_leaves_out():
-    probe = codex_probe_body("m")
-    older = {k: v for k, v in codex_probe_body("m").items() if k != "prompt_cache_key"}
+    probe = codex_probe_body("m", legacy_instructions=True)
+    older = {k: v for k, v in probe.items() if k != "prompt_cache_key"}
     older.update(parallel_tool_calls=False, reasoning=None, include=[])
     assert shape_differences(older, probe, exact=False) == []
+    assert shape_differences(older, codex_probe_body("m"), exact=False) != []
     assert shape_differences(older, probe, exact=True) != []
     assert shape_differences({**older, "service_tier": "flex"}, probe, exact=False) == [
         "Codex sends `service_tier`, which the run's request leaves out"]

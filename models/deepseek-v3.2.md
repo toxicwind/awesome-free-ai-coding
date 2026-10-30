@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'deepseek-v3.2 free: 2 providers, limits and ids, verified 2026-10-08'
-description: deepseek-v3.2 is served free by Kiro and Alibaba Cloud Model Studio (DashScope, international). None asks for a card. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'deepseek-v3.2 free: 1 provider, limits and ids, provider probes 2026-10-26'
+description: deepseek-v3.2 is served free by Kiro. It asks for no card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/deepseek-v3.2/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: deepseek-v3.2
 ---
 
@@ -11,7 +11,7 @@ crumb: deepseek-v3.2
 
 # Where deepseek-v3.2 is free
 
-**2 rows on the list serve `deepseek-v3.2` free:** Kiro and Alibaba Cloud Model Studio (DashScope, international). None asks for a card. The published offers were checked on 2026-10-08 and are rechecked twice a week. It measures **notable**: in the upper half of the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/models/deepseek-v3-2), below its strong bar.
+**One row on the list serves `deepseek-v3.2` free:** Kiro. It asks for no card. The provider's last scheduled probe was on 2026-10-26; its offer is rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: deepseek-v3.2
 
 ### [Kiro](https://mvalentsev.github.io/awesome-free-ai-coding/providers/kiro/)
 
-🎁 Trials (no card when possible) · no card · verified 2026-10-08 · listed since 2026-08-20
+🤖 Coding agents & CLIs · no card · last probe 2026-10-26 · listed since 2026-08-20
 
 Perpetual free tier of AWS's spec-driven agentic IDE (successor to Amazon Q Developer) with Claude and open-weight models
 
@@ -35,34 +35,18 @@ Requires social login or AWS Builder ID. Credits do not roll over. Free requests
 - No API endpoint to paste: this row is a tool you install or sign in to.
 - What you send may be used to train or improve models unless you turn that off ([the vendor's words](https://kiro.dev/docs/privacy-and-security/data-protection/)).
 
-### [Alibaba Cloud Model Studio (DashScope, international)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/alibaba-model-studio/)
+## Rows that listed it before
 
-🔌 LLM APIs with free tier · no card · not offered in mainland China · verified 2026-10-08 · listed since 2026-09-25
-
-A million free tokens on each of its chat models in the Singapore region — Qwen, DeepSeek and GLM among them — valid 90 days from activation or the model's release; OpenAI-compatible
-
-<details markdown="block">
-<summary>Provider-wide limits</summary>
-
-- Limits, in the vendor's words: Typical signup grant: 1,000,000 tokens once per account per model (Valid for 90 days from activation, model release or approval, whichever is later)
-
-Free grants apply in Singapore (international) only, independently per model and dated snapshot. The model pricing tables decide eligibility: Kimi has no free-quota column and glm-5.2-fast-preview has none. Account information must be completed before activation. After the grant, usage is automatically billed pay-as-you-go unless Free Quota Only is enabled separately for the model; that switch is disabled by default.
-
-</details>
-
-- Base URL: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`
-- Key: `ALIBABA_MODEL_STUDIO_API_KEY` — get one at <https://modelstudio.console.alibabacloud.com>
-- Callable ids: `deepseek-v3.2`
-- What you send is not used to train models ([the vendor's words](https://www.alibabacloud.com/help/en/model-studio/privacy-notice)).
+- [Alibaba Cloud Model Studio (DashScope, international)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/alibaba-model-studio/) — listed 2026-09-25 to 2026-10-12
 
 ## Related models
 
+- [`deepseek-v4.1-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4.1-flash/) — free at opencode, NVIDIA NIM (build.nvidia.com), Freebuff, Alibaba Cloud Model Studio (DashScope, international), Qoder (until 2026-11-01) and Token Harbor
 - [`deepseek-v4-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4-flash/) — free at Routeway, Alibaba Cloud Model Studio (DashScope, international), BazaarLink, AtomCode and FreeInference (Harvard SEAS)
-- [`deepseek-v4.1-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4.1-flash/) — free at NVIDIA NIM (build.nvidia.com), Freebuff, Alibaba Cloud Model Studio (DashScope, international) and Token Harbor
 - [`deepseek-v4-pro`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4-pro/) — free at Alibaba Cloud Model Studio (DashScope, international)
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

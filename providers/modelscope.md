@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'ModelScope API-Inference (Alibaba) free tier: limits, free models, verified 2026-10-08'
-description: Alibaba's model community serves 35 models free — DeepSeek V4 Pro, GLM-5.2, MiniMax M3 and Qwen3.8 among them — for 250 魔粒 a day at 0.5 to 2 a call, after Alibaba Cloud real-name verification. API inference requires a bound Alibaba Cloud account with real-name verification; spending Magicube also…
+title: 'ModelScope API-Inference (Alibaba) free tier: limits, free models, verified 2026-10-26'
+description: Alibaba model community with a free daily API inference allowance measured in credits, after Alibaba Cloud real-name verification. API inference requires a bound Alibaba Cloud account with real-name verification; spending Magicube also requires a verified personal email. Calls cost 0.5, 1 or 2…
 permalink: /providers/modelscope/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: ModelScope API-Inference (Alibaba)
 ---
 
@@ -11,15 +11,15 @@ crumb: ModelScope API-Inference (Alibaba)
 
 # ModelScope API-Inference (Alibaba) free tier
 
-🔌 LLM APIs with free tier · no card · offered only in mainland China · **live** — last verified by a probe on 2026-10-08 · [modelscope.cn](https://modelscope.cn) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · offered only in mainland China · **live** — last verified by a probe on 2026-10-26 · [modelscope.cn](https://modelscope.cn) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
-Alibaba's model community serves 35 models free — DeepSeek V4 Pro, GLM-5.2, MiniMax M3 and Qwen3.8 among them — for 250 魔粒 a day at 0.5 to 2 a call, after Alibaba Cloud real-name verification
+Alibaba model community with a free daily API inference allowance measured in credits, after Alibaba Cloud real-name verification
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
@@ -68,6 +68,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

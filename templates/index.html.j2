@@ -10,6 +10,9 @@
 {% macro chip(family, top=False) -%}
 {% if family in model_pages %}<a class="chip{{ ' top' if top }}" href="{{ model_pages[family] }}">{{ family }}</a>{% else %}<span class="chip{{ ' top' if top }}">{{ family }}</span>{% endif %}
 {%- endmacro %}
+{% macro recommendation_chip(family, access, top=False) -%}
+{% if access %}<span class="model-access">{{ chip(family, top) }}<small>{{ access }}</small></span>{% else %}{{ chip(family, top) }}{% endif %}
+{%- endmacro %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -59,7 +62,7 @@ body {
 .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible {
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
 }
 code, kbd { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -69,6 +72,14 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
 p { margin: 0 0 12px; }
 .skip { position: absolute; left: -9999px; top: 0; background: var(--bg); padding: 10px 14px; }
 .skip:focus { left: 8px; top: 8px; z-index: 50; box-shadow: var(--shadow); }
+.config-choices { display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; }
+.config-choices label { display:grid; gap:4px; flex:1 1 240px; min-width:0; }
+.config-choices select { width:100%; padding:9px; font:inherit; color:var(--fg);
+  background:var(--raised); border:1px solid var(--line); border-radius:6px; }
+.config-result { margin-bottom:20px; padding:16px; border-left:3px solid var(--accent);
+  background:var(--surface); overflow-wrap:anywhere; }
+.config-result p:last-child { margin-bottom:0; }
+.config-result .copy { position:static; margin-left:8px; }
 
 /* ── hero ─────────────────────────────────────────────────────────────── */
 .hero { padding: 40px 0 24px; background:
@@ -352,9 +363,8 @@ tr.flash { animation: flash 1.6s ease-out; }
       <h1><span class="name">awesome-free-ai-coding</span>
         <span class="tagline">Legal free LLM APIs &amp; coding agents</span></h1>
     </div>
-    <p class="lede"><b>Every row on this page is machine-verified.</b> Legal free tiers, trials and
-      free-model APIs for AI coding — probed {{ schedule }} against live model APIs and pricing pages;
-      an offer that dies drops to the <a href="#archive">Archive</a> once {{ archive_after_failures }} runs in a row find it gone.</p>
+    <p class="lede">Checked against live model APIs and pricing pages {{ schedule }}.
+      Offers move to the <a href="#archive">Archive</a> after {{ archive_after_failures }} consecutive failed probes.</p>
     <p class="meta">
       <span class="dot" style="background:#{{ verified_colour }}"></span>
       every row verified <b>{{ verified_floor }}</b> ({{ verified_word }})
@@ -405,7 +415,7 @@ tr.flash { animation: flash 1.6s ease-out; }
   <div class="wrap">
     <header>
       <h2>🚀 Start here</h2>
-      <p class="sub">Free is not the same as weak. Everything below runs on a $0 plan.</p>
+      <p class="sub">Free is not the same as weak. Coding agents and models available on a $0 plan.</p>
     </header>
 
     {% if starters %}
@@ -415,7 +425,7 @@ tr.flash { animation: flash 1.6s ease-out; }
         <h3>Agent · no card</h3>
         <div class="who"><a href="{{ s.url }}">{{ s.name }}</a></div>
         <div class="chips">
-          {% for f in s.families %}{{ chip(f) }}{% endfor %}{% if s.more %}<a class="chip" href="{{ s.page }}">+{{ s.more }} more</a>{% endif %}
+          {% for f in s.families %}{{ recommendation_chip(f, s.access_labels[f]) }}{% endfor %}{% if s.more %}<a class="chip" href="{{ s.page }}">+{{ s.more }} more</a>{% endif %}
         </div>
       </div>
       {% endfor %}
@@ -452,7 +462,7 @@ tr.flash { animation: flash 1.6s ease-out; }
         <ul>
           {% for p in picks.frontier %}
           <li><span class="who"><a href="{{ p.url }}">{{ p.name }}</a></span>
-            <div class="chips">{% for f in p.families %}{{ chip(f, True) }}{% endfor %}</div>
+            <div class="chips">{% for f in p.families %}{{ recommendation_chip(f, p.access_labels[f], True) }}{% endfor %}</div>
           </li>
           {% endfor %}
         </ul>
@@ -460,7 +470,7 @@ tr.flash { animation: flash 1.6s ease-out; }
       {% endif %}
       {% if picks.apis %}
       <div class="card">
-        <h3>An API key that gets the most done</h3>
+        <h3>Free API access</h3>
         <ul>{% for p in picks.apis %}<li><span class="who"><a href="{{ p.url }}">{{ p.name }}</a></span></li>{% endfor %}</ul>
       </div>
       {% endif %}
@@ -550,7 +560,7 @@ tr.flash { animation: flash 1.6s ease-out; }
         <tbody>
           {% for r in s.rows %}
           <tr id="row-{{ r.id }}" data-id="{{ r.id }}" data-section="{{ s.id }}"
-              data-flags="{{ r.flags | join(' ') }}">
+              data-flags="{{ r.flags | join(' ') }}" data-search="{{ r.search | tojson | forceescape }}">
             <th class="who" scope="row">
               <a class="name" href="{{ r.url }}">{{ r.name }}</a>
               <div class="tags">
@@ -638,13 +648,29 @@ tr.flash { animation: flash 1.6s ease-out; }
   <div class="wrap">
     <header>
       <h2>🔧 Plug it into your agent</h2>
-      <p class="sub">Connection details for every live OpenAI-compatible API above — paste the base
-        URL into opencode, aider, Cline or any OpenAI SDK. Codex CLI speaks only the OpenAI Responses
-        API: it reaches every lane here through LiteLLM, with the profile below, and calls directly a
-        lane that shows a profile of its own. Where a second URL is shown,
-        the same key also serves the Anthropic Messages format: that one is Claude Code's
-        <code>ANTHROPIC_BASE_URL</code>, and the probe checks it answers.</p>
+      <p class="sub">Base URLs and keys for opencode, aider, Cline and OpenAI SDKs.
+        Anthropic-format URLs use the same key with Claude Code's <code>ANTHROPIC_BASE_URL</code>.
+        For Codex CLI, use a listed direct profile or the LiteLLM profile below.</p>
     </header>
+    <div id="config-picker" hidden>
+      <div class="config-choices">
+        <label for="config-client">Client
+          <select id="config-client">
+            <option value="opencode">OpenCode</option>
+            <option value="codex">Codex CLI</option>
+            <option value="claude">Claude Code</option>
+            <option value="litellm">LiteLLM proxy</option>
+          </select>
+        </label>
+        <label for="config-provider">Provider
+          <select id="config-provider"></select>
+        </label>
+        <label for="config-model">Model
+          <select id="config-model"></select>
+        </label>
+      </div>
+      <div id="config-result" class="config-result" aria-live="polite" aria-atomic="true"></div>
+    </div>
     <details id="connections" class="fold">
     <summary>Show the connection table for all {{ connections | length }} APIs</summary>
     <div class="scroll">
@@ -712,9 +738,9 @@ tr.flash { animation: flash 1.6s ease-out; }
         <tr><th scope="row"><a href="{{ repo_url }}/blob/main/configs/claude-code.sh">configs/claude-code.sh</a></th>
           <td>One shell function per gateway that serves the Anthropic Messages format — <code>source</code> it and {% if claude_example %}<code>{{ claude_example }}</code> runs <a href="https://code.claude.com/docs">Claude Code</a> on that lane{% else %}run the function named after a row to start <a href="https://code.claude.com/docs">Claude Code</a> on its lane{% endif %}.</td></tr>
         <tr><th scope="row"><a href="{{ repo_url }}/blob/main/configs/litellm.yaml">configs/litellm.yaml</a></th>
-          <td><a href="https://docs.litellm.ai">LiteLLM</a> proxy config — every free model LiteLLM can call behind one local endpoint{% if litellm_groups %}; ask for {% for g in litellm_groups %}<code>{{ g }}</code>{{ ', ' if loop.revindex > 2 else (' or ' if loop.revindex == 2 else '') }}{% endfor %} instead of a model and a call moves to the next free lane when one runs out{% endif %}. Start it as <code>{{ litellm_command }}</code>: without <code>--host</code> the proxy listens on every interface, the file sets no master key, and LiteLLM would send your <code>OPENAI_API_KEY</code> to a lane whose own key is not set.</td></tr>
+          <td><a href="https://docs.litellm.ai">LiteLLM</a> proxy for compatible free models{% if litellm_groups %}; {% for g in litellm_groups %}<code>{{ g }}</code>{{ ', ' if loop.revindex > 2 else (' or ' if loop.revindex == 2 else '') }}{% endfor %} switch lanes when one runs out{% endif %}. Start with <code>{{ litellm_command }}</code> to bind to loopback and prevent fallback to your <code>OPENAI_API_KEY</code>. No proxy master key is configured.</td></tr>
         <tr><th scope="row"><a href="{{ repo_url }}/blob/main/{{ codex.path }}">{{ codex.path }}</a></th>
-          <td><a href="https://developers.openai.com/codex">Codex CLI</a> profile over <code>configs/litellm.yaml</code> — Codex speaks only the OpenAI Responses API, and the LiteLLM proxy answers it for every lane in that file by calling the lane's chat completions: run the proxy, copy the file to <code>~/.codex/</code>, then <code>codex -p {{ codex.name }}</code> (Codex CLI {{ codex.since }} and LiteLLM {{ codex.litellm_since }} or later).</td></tr>
+          <td><a href="https://developers.openai.com/codex">Codex CLI</a> profile: LiteLLM converts chat completions to the Responses API required by Codex. Run the proxy, copy the file to <code>~/.codex/</code>, then <code>codex -p {{ codex.name }}</code> (Codex CLI {{ codex.since }} and LiteLLM {{ codex.litellm_since }} or later).</td></tr>
         <tr><th scope="row"><a href="llms.txt">llms.txt</a></th>
           <td>The whole list as one text file for LLM search and agents — every live offer with its page, what it needs and where it answers.</td></tr>
         <tr><th scope="row"><a href="index.json">index.json</a></th>
@@ -739,7 +765,7 @@ tr.flash { animation: flash 1.6s ease-out; }
     </header>
     <div class="grid cols-3">
       <div class="card">
-        <h3>Probed, not remembered</h3>
+        <h3>Live verification</h3>
         <p class="sub">Every row anchors on something that dies with the offer: a model id in the
           vendor's own <code>/models</code>, or wording on the page that states the free tier. A row
           that fails {{ archive_after_failures }} probes in a row, or goes {{ archive_after_days }}
@@ -747,9 +773,8 @@ tr.flash { animation: flash 1.6s ease-out; }
       </div>
       <div class="card">
         <h3>The vendor's own words</h3>
-        <p class="sub">The limits column is the vendor's own words, from the page they were read on. No figure
-          here is a summary of a summary, and a quote that stops matching its source is re-read
-          before it is edited.</p>
+        <p class="sub">Limits link to vendor sources. Quotes are checked against those sources;
+          mismatches require review.</p>
       </div>
       <div class="card">
         <h3>Legal free only</h3>
@@ -776,8 +801,7 @@ tr.flash { animation: flash 1.6s ease-out; }
   <div class="wrap">
     <header>
       <h2>📦 Archive</h2>
-      <p class="sub">Rows this list carried and carries no more, each with why it left — kept so a
-        dead tier is never silently forgotten. A row is never deleted from the registry.</p>
+      <p class="sub">Previously listed offers and why they left. Their pages and history are retained.</p>
     </header>
     {% if archived %}
     <div class="scroll">
@@ -787,7 +811,7 @@ tr.flash { animation: flash 1.6s ease-out; }
         </thead>
         <tbody>
           {% for r in archived %}
-          <tr data-id="{{ r.id }}">
+          <tr data-id="{{ r.id }}" data-search="{{ r.search | tojson | forceescape }}">
             <th class="who" scope="row"><a class="name" href="{{ r.page }}">{{ r.name }}</a></th>
             <td class="what" data-label="Why it left" style="width:auto">
               {% if r.why.teaser %}
@@ -860,23 +884,146 @@ tr.flash { animation: flash 1.6s ease-out; }
   </div>
 </div>
 <script type="application/json" id="search-config">{{ search_config | safe }}</script>
+<script type="application/json" id="client-configs">{{ client_configs | safe }}</script>
 
 <script src="assets/model-name.js"></script>
+<script src="assets/search.js"></script>
 <script>
 // Progressive enhancement only: the page is complete without a line of this.
 (function () {
   "use strict";
+  // Client choices reuse the files' generated routes; keys stay in the local client.
+  var picker = document.getElementById("config-picker");
+  var client = document.getElementById("config-client");
+  var provider = document.getElementById("config-provider");
+  var model = document.getElementById("config-model");
+  var configResult = document.getElementById("config-result");
+  var configs = JSON.parse(document.getElementById("client-configs").textContent);
+  function configLine(label, value, code, copy) {
+    var p = document.createElement("p");
+    p.appendChild(document.createTextNode(label));
+    var content = document.createElement(code ? "code" : "span");
+    content.textContent = value;
+    p.appendChild(content); configResult.appendChild(p);
+    if (copy && navigator.clipboard) {
+      var button = document.createElement("button");
+      button.type = "button"; button.className = "copy"; button.textContent = "Copy";
+      button.dataset.copy = value;
+      button.setAttribute("aria-label", copy);
+      p.appendChild(button);
+    }
+  }
+  function configLink(label, href, parent) {
+    var a = document.createElement("a"); a.textContent = label; a.href = href;
+    parent.appendChild(a);
+  }
+  function showConfig() {
+    configResult.replaceChildren();
+    var row = configs[client.value].find(function (r) { return r.id === provider.value; });
+    if (!row) {
+      configLine("", configs[client.value].length ? "Choose a provider to see its configuration." :
+        "No generated configuration is available for this client. Use the connection table below.");
+      return;
+    }
+    var choice = row.models.find(function (m) { return m.id === model.value; });
+    if (!choice) {
+      configLine("", "This model has no generated setup for this provider and client. Choose an available model.");
+      return;
+    }
+    row = Object.assign({}, row, {model: choice.model, command: choice.command, access: choice.access});
+    var files = document.createElement("p");
+    files.appendChild(document.createTextNode(row.route + ": "));
+    row.files.forEach(function (path, i) {
+      if (i) { files.appendChild(document.createTextNode(" + ")); }
+      configLink(path, {{ repo_url | tojson }} + "/blob/main/" + path, files);
+    });
+    configResult.appendChild(files);
+    configLine("", row.setup);
+    if (row.proxy_command) { configLine("Start proxy: ", row.proxy_command, true, "Copy proxy command"); }
+    configLine("Launch: ", row.command, true, "Copy launch command");
+    configLine("Model: ", row.model, true);
+    if (row.keyless) { configLine("Key: ", "No key required."); }
+    else {
+      configLine("Set locally: ", row.env_var, true);
+      var key = document.createElement("p");
+      if (row.key_url) { configLink(row.public_key ? "Vendor's public key" : "Get a key", row.key_url, key); }
+      configResult.appendChild(key);
+    }
+    if (row.card) { configLine("", row.card); }
+    if (row.access) { configLine("Access: ", row.access); }
+    if (row.notice) { configLine("Does not work as published: ", row.notice); }
+    var details = document.createElement("details");
+    var summary = document.createElement("summary"); summary.textContent = "Limits and connection notes";
+    details.appendChild(summary);
+    [row.limits, row.note].filter(Boolean).forEach(function (text) {
+      var p = document.createElement("p"); p.textContent = text; details.appendChild(p);
+    });
+    var more = document.createElement("p"); configLink("Provider details", row.page, more);
+    details.appendChild(more); configResult.appendChild(details);
+  }
+  function chooseClient() {
+    var previous = provider.value;
+    provider.replaceChildren(new Option("Choose a provider", ""));
+    configs[client.value].forEach(function (row) { provider.add(new Option(row.name, row.id)); });
+    provider.value = configs[client.value].some(function (r) { return r.id === previous; }) ? previous : "";
+    provider.disabled = !configs[client.value].length;
+    chooseModel();
+  }
+  function chooseModel(requested) {
+    var previous = requested === undefined ? model.value : requested;
+    var row = configs[client.value].find(function (r) { return r.id === provider.value; });
+    model.replaceChildren();
+    model.disabled = !row;
+    if (row) {
+      row.models.forEach(function (m) { model.add(new Option(m.id, m.id)); });
+      if (previous && !row.models.some(function (m) { return m.id === previous; })) {
+        model.add(new Option("Choose an available model", ""), 0);
+        model.value = "";
+      } else { model.value = previous || row.models[0].id; }
+    }
+    showConfig();
+  }
+  function syncConfig() {
+    var url = new URL(location.href);
+    url.searchParams.set("client", client.value);
+    if (provider.value) { url.searchParams.set("provider", provider.value); }
+    else { url.searchParams.delete("provider"); }
+    if (provider.value && model.value) { url.searchParams.set("model", model.value); }
+    else { url.searchParams.delete("model"); }
+    url.hash = "plug";
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }
+  function restoreConfig() {
+    var params = new URLSearchParams(location.search);
+    var requested = params.get("client");
+    if (Object.prototype.hasOwnProperty.call(configs, requested)) { client.value = requested; }
+    chooseClient();
+    if (configs[client.value].some(function (row) { return row.id === params.get("provider"); })) {
+      provider.value = params.get("provider");
+      chooseModel(params.get("model") || "");
+    }
+  }
+  client.addEventListener("change", function () { chooseClient(); syncConfig(); });
+  provider.addEventListener("change", function () { chooseModel(""); syncConfig(); });
+  model.addEventListener("change", function () { showConfig(); syncConfig(); });
+  restoreConfig(); picker.hidden = false;
   // Copy buttons — hidden in the markup so a browser without the clipboard API
   // never shows a control that does nothing.
   if (navigator.clipboard) {
     document.querySelectorAll("button.copy").forEach(function (button) {
       button.hidden = false;
-      button.addEventListener("click", function () {
-        navigator.clipboard.writeText(button.dataset.copy).then(function () {
-          var was = button.textContent;
-          button.textContent = "Copied";
-          setTimeout(function () { button.textContent = was; }, 1200);
-        });
+    });
+    document.addEventListener("click", function (event) {
+      var button = event.target.closest("button.copy");
+      if (!button || button.disabled) { return; }
+      var was = button.textContent;
+      button.disabled = true;
+      navigator.clipboard.writeText(button.dataset.copy).then(function () {
+        button.textContent = "Copied";
+      }, function () {
+        button.textContent = "Copy failed";
+      }).finally(function () {
+        setTimeout(function () { button.textContent = was; button.disabled = false; }, 1200);
       });
     });
   }
@@ -900,7 +1047,7 @@ tr.flash { animation: flash 1.6s ease-out; }
   var results = document.getElementById("results");
   var chipsBox = dialog.querySelector(".palette-chips");
   var toTable = document.getElementById("to-table");
-  var opener = null, active = -1, options = [], index = null, timer = null;
+  var opener = null, active = -1, options = [], index = null;
   var state = { section: "", filters: {} };
   // What an empty box offers to try: the most-served model families on the
   // page, one of each line (not three Nemotrons), then a vendor and the
@@ -915,33 +1062,17 @@ tr.flash { animation: flash 1.6s ease-out; }
   // Case and accents away, one character for one, so a place found in the
   // folded text is the same place in the text shown: "Côte" finds "cote", and
   // the "…" a snippet starts with stays one character long.
-  function fold(text) {
-    return (text || "").replace(/[\s\S]/g, function (c) {
-      var low = c.toLowerCase(), base = low.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return base.length === 1 ? base : low.length === 1 ? low : c;
-    });
-  }
-  function textOf(el) { return el ? el.textContent.replace(/\s+/g, " ").trim() : ""; }
-  function full(cell) { return cell ? textOf(cell.querySelector(".full") || cell) : ""; }
+  var fold = FreeTierSearch.fold;
 
   function readPage() {
     var sections = {};
     CONFIG.sections.forEach(function (sec) { sections[sec.id] = sec; });
     var offers = [].map.call(document.querySelectorAll("section.listing tbody tr[data-id]"), function (tr, i) {
-      var name = tr.querySelector("a.name");
-      var models = [].map.call(tr.querySelectorAll("td.models .chip"), textOf)
-        .filter(function (t) { return !/^\+\d+ more$/.test(t); });
-      var modelAccess = {};
-      [].forEach.call(tr.querySelectorAll("td.models .model-access"), function (node) {
-        var chip = node.querySelector(".chip"), access = textOf(node.querySelector("small"));
-        if (chip && access) { modelAccess[textOf(chip)] = access; }
+      return Object.assign(JSON.parse(tr.dataset.search), {
+        kind: "offer", id: tr.dataset.id, order: i, row: tr,
+        page: tr.querySelector("td.when a").getAttribute("href"),
+        section: sections[tr.dataset.section], tags: tr.querySelector(".tags")
       });
-      return { kind: "offer", id: tr.dataset.id, order: i, row: tr,
-               page: tr.querySelector("td.when a").getAttribute("href"),
-               section: sections[tr.dataset.section], flags: tr.dataset.flags.split(" "),
-               name: textOf(name), tags: tr.querySelector(".tags"), models: models,
-               access: textOf(tr.querySelector("td.what .access")), modelAccess: modelAccess,
-               what: full(tr.querySelector("td.what")), limits: full(tr.querySelector("td.limits")) };
     });
     var byId = {};
     offers.forEach(function (o) { byId[o.id] = o; });
@@ -952,86 +1083,31 @@ tr.flash { animation: flash 1.6s ease-out; }
                page: own ? own.getAttribute("href") : "", row: tr, rows: rows };
     });
     var gone = [].map.call(document.querySelectorAll("#archive tbody tr[data-id]"), function (tr, i) {
-      return { kind: "gone", order: i, id: tr.dataset.id,
-               page: tr.querySelector("a.name").getAttribute("href"),
-               name: textOf(tr.querySelector("a.name")), why: full(tr.querySelector("td.what")) };
+      return Object.assign(JSON.parse(tr.dataset.search), {
+        kind: "gone", order: i, id: tr.dataset.id,
+        page: tr.querySelector("a.name").getAttribute("href")
+      });
     });
     offers.forEach(prepareOffer);
     models.forEach(prepareModel);
-    gone.forEach(function (g) { g.fName = fold(g.name); g.fWhy = fold(g.why); });
+    gone.forEach(prepareOffer);
     return { offers: offers, models: models, gone: gone };
   }
 
   // Words that name a filter become the filter: "no card" asks for the rows
   // that ask for none, not for rows whose prose says so.
-  function parse(raw) {
-    var text = " " + fold(raw).replace(/\s+/g, " ") + " ";
-    var picked = { section: "", filters: {} };
-    function take(words, apply) {
-      words.slice().sort(function (a, b) { return b.length - a.length; }).forEach(function (w) {
-        var at = text.indexOf(" " + w + " ");
-        if (at !== -1) { text = text.slice(0, at) + " " + text.slice(at + w.length + 1); apply(); }
-      });
-    }
-    CONFIG.filters.forEach(function (f) { take(f.words, function () { picked.filters[f.id] = true; }); });
-    CONFIG.sections.forEach(function (sec) { take(sec.words, function () { picked.section = sec.id; }); });
-    return { terms: text.split(" ").filter(Boolean), picked: picked };
+  function parse(raw) { return FreeTierSearch.parse(raw, CONFIG); }
+
+  function selection(q) {
+    var filters = {};
+    Object.keys(state.filters).forEach(function (f) { if (state.filters[f]) { filters[f] = true; } });
+    Object.keys(q.picked.filters).forEach(function (f) { filters[f] = true; });
+    return { section: q.picked.section || state.section, filters: filters };
   }
 
-  function wanted(o, section, filters) {
-    if (section && o.section.id !== section) { return false; }
-    return Object.keys(filters).every(function (f) { return !filters[f] || o.flags.indexOf(f) !== -1; });
-  }
-
-  // Each term has to be somewhere; the best field it is in decides the order.
-  // A single letter is the start of a name, not a letter anywhere in a quote.
-  function scoreOffer(o, terms) {
-    var total = 0;
-    for (var i = 0; i < terms.length; i++) {
-      var t = terms[i], best = 0;
-      if (t.length === 1) {
-        best = o.fName.indexOf(t) === 0 ? 12
-          : o.fModels.some(function (m) { return m.indexOf(t) === 0; }) ? 6 : 0;
-      } else if (o.fName.indexOf(t) === 0) { best = 12; }
-      else if (o.fName.indexOf(t) !== -1) { best = 9; }
-      else if (o.fModels.some(function (m) { return m.indexOf(t) !== -1; })) { best = 6; }
-      else if (o.fWhat.indexOf(t) !== -1) { best = 3; }
-      else if (o.fLimits.indexOf(t) !== -1) { best = 1; }
-      if (!best) { total = 0; break; }
-      total += best;
-    }
-    return Math.max(total, wholeOffer(o, terms));
-  }
-  // Terms that spell one name — "Nemotron 3 Ultra", "GLM 5", "Gemma 4 26B" —
-  // are read whole as well: a lone digit starts no
-  // name on its own, so term by term the name found nothing.
-  function wholeOffer(o, terms) {
-    var whole = terms.length > 1 ? written(terms.join("")) : "";
-    if (whole.length < 3) { return 0; }
-    if (o.wModels.some(function (m) { return m.indexOf(whole) !== -1; })) { return 6 * terms.length; }
-    return o.wWhat.indexOf(whole) !== -1 ? 3 * terms.length
-      : o.wLimits.indexOf(whole) !== -1 ? terms.length : 0;
-  }
-  function squash(text) { return text.replace(/[\s._-]+/g, ""); }
-  function prepareOffer(o) {
-    o.fName = fold(o.name); o.fModels = o.models.map(fold);
-    o.fWhat = fold(o.what); o.fLimits = fold(o.limits);
-    o.wModels = o.fModels.map(written); o.wWhat = written(o.fWhat); o.wLimits = written(o.fLimits);
-  }
-  function prepareModel(m) { m.fFamily = fold(m.family); m.wFamily = written(m.fFamily); }
-  function scoreModel(m, terms) {
-    var whole = written(terms.join(""));
-    if (terms.length > 1 && whole.length > 2 && m.wFamily.indexOf(whole) !== -1) {
-      return m.wFamily === whole ? 32 : m.wFamily.indexOf(whole) === 0 ? 20 : 12;
-    }
-    var total = squash(m.fFamily) === squash(terms.join("")) ? 20 : 0;
-    for (var i = 0; i < terms.length; i++) {
-      var at = m.fFamily.indexOf(terms[i]);
-      if (at === -1 || (terms[i].length === 1 && at !== 0)) { return 0; }
-      total += m.fFamily === terms[i] ? 12 : at === 0 ? 8 : 5;
-    }
-    return total;
-  }
+  var wanted = FreeTierSearch.wanted, prepareOffer = FreeTierSearch.prepareOffer;
+  var prepareModel = FreeTierSearch.prepareModel, scoreOffer = FreeTierSearch.scoreOffer;
+  var scoreModel = FreeTierSearch.scoreModel;
 
   // A run of text with every term marked, built as nodes: a vendor's sentence
   // is text here as it is everywhere else on the page.
@@ -1137,10 +1213,7 @@ tr.flash { animation: flash 1.6s ease-out; }
   function render() {
     index = index || readPage();
     var q = parse(input.value);
-    var section = q.picked.section || state.section;
-    var filters = {};
-    Object.keys(state.filters).forEach(function (f) { if (state.filters[f]) { filters[f] = true; } });
-    Object.keys(q.picked.filters).forEach(function (f) { filters[f] = true; });
+    var chosen = selection(q), section = chosen.section, filters = chosen.filters;
     chipsBox.querySelectorAll(".fchip").forEach(function (b) {
       var on = b.dataset.section ? b.dataset.section === section : !!filters[b.dataset.filter];
       b.setAttribute("aria-pressed", on ? "true" : "false");
@@ -1177,12 +1250,7 @@ tr.flash { animation: flash 1.6s ease-out; }
       .filter(function (x) { return x.score > 0; })
       .sort(function (a, b) { return b.score - a.score || a.m.order - b.m.order; });
     var gone = !terms.length || narrowed ? [] : index.gone
-      .filter(function (g) {
-        return terms.every(function (t) {
-          return t.length === 1 ? g.fName.indexOf(t) === 0
-            : g.fName.indexOf(t) !== -1 || g.fWhy.indexOf(t) !== -1;
-        });
-      });
+      .filter(function (g) { return scoreOffer(g, terms) > 0; });
     if (models.length) {
       group("Models", models.length);
       models.slice(0, 8).forEach(function (x) {
@@ -1237,12 +1305,18 @@ tr.flash { animation: flash 1.6s ease-out; }
            + "the same way, is one link below.");
     }
     select(options.length ? 0 : -1);
-    sync(section, filters);
+    sync(section, filters, gone.length > 0);
   }
 
   // The query lives in the address, so a search can be sent to someone.
-  function sync(section, filters) {
-    var params = new URLSearchParams();
+  function withoutSearch() {
+    var params = new URLSearchParams(location.search);
+    params.delete("q"); params.delete("s");
+    CONFIG.filters.forEach(function (f) { params.delete(f.id); });
+    return params;
+  }
+  function sync(section, filters, archived) {
+    var params = withoutSearch();
     if (input.value.trim()) { params.set("q", input.value.trim()); }
     if (section) { params.set("s", section); }
     Object.keys(filters).forEach(function (f) { params.set(f, "1"); });
@@ -1254,6 +1328,7 @@ tr.flash { animation: flash 1.6s ease-out; }
     if (filters.nokey) { table.set("nokey", "1"); }
     if (filters.claude) { table.set("claude", "1"); }
     if (filters.strong) { table.set("strong", "1"); }
+    if (archived) { table.set("archived", "1"); }
     toTable.href = "browse.html" + (table.toString() ? "?" + table : "");
   }
 
@@ -1300,7 +1375,8 @@ tr.flash { animation: flash 1.6s ease-out; }
     state = { section: "", filters: {} };
     input.value = "";
     document.documentElement.style.overflow = "";
-    history.replaceState(null, "", location.pathname);
+    var params = withoutSearch();
+    history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : ""));
     if (restore !== false && opener && opener.focus) { opener.focus(); }
   }
 
@@ -1313,12 +1389,13 @@ tr.flash { animation: flash 1.6s ease-out; }
     b.setAttribute("aria-pressed", "false");
     b.addEventListener("click", function () {
       var q = parse(input.value);
+      state = selection(q);
       if (f.emoji) {
-        state.section = (q.picked.section || state.section) === f.id ? "" : f.id;
+        state.section = state.section === f.id ? "" : f.id;
       } else {
-        state.filters[f.id] = !(state.filters[f.id] || q.picked.filters[f.id]);
+        state.filters[f.id] = !state.filters[f.id];
       }
-      // A filter typed as words and switched off by its chip leaves the words.
+      // Keep typed choices in state when their words leave the input.
       input.value = q.terms.join(" ");
       input.focus();
       render();
@@ -1326,7 +1403,7 @@ tr.flash { animation: flash 1.6s ease-out; }
     chipsBox.appendChild(b);
   });
 
-  input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(render, 60); });
+  input.addEventListener("input", render);
   input.addEventListener("keydown", function (ev) {
     if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
       ev.preventDefault();
@@ -1374,7 +1451,7 @@ tr.flash { animation: flash 1.6s ease-out; }
   });
   // A search sent as a link opens as it was left.
   var params = new URLSearchParams(location.search);
-  if (location.hash === "#search" || params.has("q")) {
+  if (location.hash === "#search" || (!location.hash && params.has("q"))) {
     state.section = params.get("s") || "";
     CONFIG.filters.forEach(function (f) { state.filters[f.id] = params.get(f.id) === "1"; });
     open(null, params.get("q") || "");

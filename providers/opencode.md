@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'opencode free tier: limits, free models, verified 2026-10-08'
-description: 'Open-source coding agent whose opencode Zen gateway prices a rotating set of models at zero — inside OpenCode only, no sign-in; any provider via BYOK. Free models: big-pickle, mimo-v2.5, ling-3.0-flash-fin, nemotron-3-ultra, nemotron-3.5-lightning, muse-spark-1.3-contributor, mimo-v2.6-flash. Free…'
+title: 'opencode free tier: limits, free models, verified 2026-10-26'
+description: 'Open-source coding agent whose opencode Zen gateway prices a rotating set of models at zero — inside OpenCode only, no sign-in; any provider via BYOK. Free models: big-pickle, nemotron-3-ultra, nemotron-3.5-lightning, mimo-v2.6-flash, deepseek-v4.1-flash. Free models work only inside OpenCode…'
 permalink: /providers/opencode/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: opencode
 ---
 
@@ -11,7 +11,7 @@ crumb: opencode
 
 # opencode free tier
 
-🤖 Coding agents & CLIs · no card · **live** — last verified by a probe on 2026-10-08 · [opencode.ai](https://opencode.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🤖 Coding agents & CLIs · no card · **live** — last verified by a probe on 2026-10-26 · [opencode.ai](https://opencode.ai) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -19,13 +19,13 @@ Open-source coding agent whose opencode Zen gateway prices a rotating set of mod
 
 ## Free models
 
-`big-pickle`, [`mimo-v2.5`](https://mvalentsev.github.io/awesome-free-ai-coding/models/mimo-v2.5/), [`ling-3.0-flash-fin`](https://mvalentsev.github.io/awesome-free-ai-coding/models/ling-3.0-flash-fin/), [`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), [`muse-spark-1.3-contributor`](https://mvalentsev.github.io/awesome-free-ai-coding/models/muse-spark-1.3-contributor/), [`mimo-v2.6-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/mimo-v2.6-flash/)
+`big-pickle`, [`nemotron-3-ultra`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3-ultra/), [`nemotron-3.5-lightning`](https://mvalentsev.github.io/awesome-free-ai-coding/models/nemotron-3.5-lightning/), [`mimo-v2.6-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/mimo-v2.6-flash/), [`deepseek-v4.1-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/deepseek-v4.1-flash/)
 
 ## Limits, in the vendor's words
 
 Free model usage: Usage allowance: amount not published (period not published); scope not published
 
-Free models work only inside OpenCode; other clients receive `403 FreeTierError: OpenCode's free tier can only be used from within OpenCode`. Use `opencode/<model-id>` and select the Free variant; plain muse-spark-1.3 is paid. Offers rotate and each named free offer is "available on OpenCode for a limited time". Collected free-model data may improve models; NVIDIA offers are trial-only and exclude personal or confidential data. Muse Spark Contributor permits training on prompts and completions; max effort belongs to the paid Standard variant.
+Free models work only inside OpenCode; other clients receive `403 FreeTierError: OpenCode's free tier can only be used from within OpenCode`. Use `opencode/<model-id>` and select the Free variant. Offers rotate; each named free offer is "available on OpenCode for a limited time". Collected free-model data may improve models; NVIDIA offers are trial-only and exclude personal or confidential data. Flint 40B Free allows training and retains data for 30 days. Beam Free's provider does not train on inputs and retains them for 30 days; its listed territorial exclusions include Russia.
 
 ## Where it is offered
 
@@ -33,16 +33,17 @@ The vendor names no country it keeps the offer from ([source](https://opencode.a
 
 ## What happens to what you send
 
-What you send may be used to train or improve models. In the vendor's words: “During its free period, collected data may be used to improve the model.” ([source](https://opencode.ai/docs/zen/)).
+What you send may be used to train or improve models. In the vendor's words: “During its free period, collected data may be used to improve the model.” ([source](https://opencode.ai/v2/docs/console/models/)).
 
 ## Connect
 
 - No API endpoint to paste: this row is a tool you install or sign in to.
+- In opencode's own model list: `Flint 40B Free`, `GLM-5.3-Flash Free`, `Beam Free`, `Nemotron 3.5 Super VL Free`
 
 ## Evidence
 
-- Probe: the page at <https://opencode.ai/docs/zen/>, anchored on `big pickle`, `mimo-v2.5-free`
-- Source: <https://opencode.ai/docs/zen/>
+- Probe: the page at <https://opencode.ai/v2/docs/console/models/>, anchored on `big pickle`, `mimo-v2.6-flash-free`
+- Source: <https://opencode.ai/v2/docs/console/models/>
 - Source: <https://opencode.ai/docs/>
 - Source: <https://github.com/anomalyco/opencode/issues/49590#issuecomment-5723721001>
 - Source: <https://dev.meta.ai/docs/reasoning.md>
@@ -51,6 +52,11 @@ What you send may be used to train or improve models. In the vendor's words: “
 
 Each line is a change to what this page publishes, dated the day it reached the list, in UTC.
 
+- `2026-10-29` — Free models changed: added deepseek-v4.1-flash
+- `2026-10-25` — Free models changed: dropped longcat-2.5-preview, mimo-v2.5
+- `2026-10-19` — Free models changed: dropped muse-spark-1.3-contributor
+- `2026-10-15` — Free models changed: dropped ling-3.0-flash-fin
+- `2026-10-11` — Free models changed: added longcat-2.5-preview
 - `2026-10-06` — Free models changed: added mimo-v2.6-flash
 - `2026-09-16` — Free models changed: added muse-spark-1.3-contributor
 - `2026-09-14` — Free models changed: dropped muse-spark-1.2
@@ -62,6 +68,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

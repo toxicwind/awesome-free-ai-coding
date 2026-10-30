@@ -3,7 +3,7 @@ layout: default
 title: 'MiMoCode: the same project as MiMo Code'
 description: 'MiMoCode and MiMo Code are one project. The list carried it twice and now keeps one row: the free tier, the evidence and the history are on the MiMo Code page.'
 permalink: /providers/mimocode/
-last_modified_at: 2026-07-19
+last_modified_at: 2026-09-27
 crumb: MiMoCode
 ---
 
@@ -26,6 +26,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08. No probe reads this row any more — the list keeps one row per service; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29. No probe reads this row any more — the list keeps one row per service; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

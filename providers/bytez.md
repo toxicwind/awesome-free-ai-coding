@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Bytez free tier: limits, free models, verified 2026-10-08'
+title: 'Bytez free tier: limits, free models, verified 2026-10-26'
 description: Serverless API over open models, whose Free plan grants $1 of credit every four weeks for open models of up to 7B parameters, one request at a time, with no billing. Credits expire four weeks after grant. The free balance supports open models up to 7B parameters. Closed-model docs conflict between…
 permalink: /providers/bytez/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: Bytez
 ---
 
@@ -11,7 +11,7 @@ crumb: Bytez
 
 # Bytez free tier
 
-🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-08 · [bytez.com](https://bytez.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · no card · **live** — last verified by a probe on 2026-10-26 · [bytez.com](https://bytez.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -19,11 +19,11 @@ Serverless API over open models, whose Free plan grants $1 of credit every four 
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
-Open models up to 7B: $1/4 weeks; 1 requests at once per account
+Open models up to 7B: $1/4 weeks; 1 request at once per account
 
 Credits expire four weeks after grant. The free balance supports open models up to 7B parameters. Closed-model docs conflict between provider prices plus a platform fee and BYOK billed directly by the provider, so the free dollar does not establish bundled closed-model access. Larger open models require paid credit and a paid plan.
 
@@ -49,7 +49,7 @@ curl -s https://api.bytez.com/models/v2/openai/v1/chat/completions \
 
 ## Evidence
 
-- Probe: the page at <https://docs.bytez.com/model-api/docs/billing.md>, anchored on `$0 / month - Get $1 in free credits`, `Run open models up to 7B parameters`
+- Probe: the page at <https://docs.bytez.com/model-api/docs/billing.md>, anchored on `\$0 / month - Get \$1 in free credits`, `Run open models up to 7B parameters`
 - Source: <https://docs.bytez.com/model-api/docs/billing.md>
 - Source: <https://docs.bytez.com/model-api/docs/billing>
 - Source: <https://docs.bytez.com/model-api/docs/get-started.md>
@@ -62,6 +62,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

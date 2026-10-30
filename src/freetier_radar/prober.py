@@ -6,6 +6,7 @@ import html
 import json
 import re
 import uuid
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -14,9 +15,12 @@ from pathlib import Path
 
 import httpx
 
+from .page_reader import browser_challenge, page_evidence, recover_page, recover_page_sync
+
 from .models import (
-    CHALLENGE_MARKERS, DEAD_MARKERS, NOTICE_HOLD_DAYS, Entry, Follow, ModelFamily, Probe, ProbeType,
-    _id_squash, _squash, id_family, names_family, is_archived_for_good, lane_ids, load_registry,
+    CHALLENGE_MARKERS, DEAD_MARKERS, NOTICE_HOLD_DAYS, OPENCODE_OUTPUT_FIELD,
+    OPENCODE_LEGACY_OUTPUT_FIELD, Entry, Follow, ModelFamily, Probe, ProbeType,
+    _id_squash, _squash, names_family, is_archived_for_good, lane_ids, load_registry,
     notice_holds, save_registry,
 )
 
@@ -52,7 +56,8 @@ class ProbeResult:
 async def probe_entry(client: httpx.AsyncClient, entry: Entry,
                       attempts: int = ATTEMPTS, backoff: float = BACKOFF_SECONDS,
                       today: date | None = None) -> ProbeResult:
-    resp, stop = await _read(client, entry.probe.endpoint, attempts, backoff)
+    resp, stop = await _read(client, entry.probe.endpoint, attempts, backoff,
+        page=entry.probe.type is ProbeType.PAGE_KEYWORDS and entry.probe.follow is None)
     if stop is not None:
         return stop
     if entry.probe.follow is not None:
@@ -63,7 +68,7 @@ async def probe_entry(client: httpx.AsyncClient, entry: Entry,
     # a catalog read with a free list is checked with the list's marks on it.
     page = resp
     if entry.probe.free_list is not None:
-        resp, stop = await _read_free_list(client, entry, resp, attempts, backoff)
+        resp, stop = await _read_free_list(client, entry, resp, attempts, backoff, today=today)
         if stop is not None:
             return stop
     detail = check_content(resp, entry)
@@ -95,8 +100,13 @@ async def probe_entry(client: httpx.AsyncClient, entry: Entry,
         unevidenced = unevidenced_families(resp, entry)
         if unevidenced:
             column = "listed families the page does not name: " + ", ".join(unevidenced)
+        inventory = model_table_findings(resp, entry, today or date.today())
 
         def verdict(status: ProbeStatus, note: str = "") -> ProbeResult:
+            if inventory:
+                note = " | ".join(inventory + ([note] if note else []))
+                if status is ProbeStatus.PASS:
+                    status = ProbeStatus.STALE_IDS
             # The keyless or public-key lane's note rides with whatever else
             # the read found, after it.
             if keyless is not None:
@@ -149,17 +159,42 @@ async def probe_entry(client: httpx.AsyncClient, entry: Entry,
         # border_moved) are both read, and both notes kept: one does not answer
         # the other.
         moved = []
+        lane = entry.api or entry.client_lane
+        if (lane and lane.model_bindings) or entry.probe.model_exclusions:
+            from .quotes import model_binding_changes, model_exclusion_changes
+            bodies = {}
+            sources = ([b.source for mid,b in lane.model_bindings.items() if mid in lane.model_ids]
+                       if lane else [])
+            sources.extend(e.source for e in entry.probe.model_exclusions)
+            for source in dict.fromkeys(sources):
+                response,_ = await _page_beside(client,source,entry,page,attempts,backoff)
+                if response is not None:
+                    bodies[source] = response.text
+            moved.extend(model_binding_changes(entry, bodies))
+            moved.extend(model_exclusion_changes(entry, bodies))
         if entry.quotas:
             from .quotas import quota_moved
             moved.extend(await quota_moved(client, entry, page, attempts, backoff,
                                           today or date.today()))
+        if entry.remaining_free:
+            from .quotes import page_texts, quote_found
+            response, _ = await _page_beside(client, entry.remaining_free.source,
+                                            entry, page, attempts, backoff)
+            if response is None:
+                moved.append("remaining free offer: source could not be checked")
+            elif not quote_found(entry.remaining_free.quote, page_texts(response.text)):
+                moved.append("remaining free offer: eligibility quote no longer on its source")
         if entry.page_catalog is not None:
-            from .page_catalog import check_page_catalog
+            from .page_catalog import check_page_catalog, check_model_eligibility, catalog_sources
             condition_bodies={}
-            for source in {c.source for c in entry.page_catalog.conditions.values() if c.source}:
+            for source in catalog_sources(entry.page_catalog):
                 response,_ = await _page_beside(client,source,entry,page,attempts,backoff)
                 if response is not None:condition_bodies[source]=response.text
             changes = check_page_catalog(page.text, entry.page_catalog, condition_bodies, today=today)
+            eligibility = check_model_eligibility(entry.page_catalog,
+                                                  {entry.page_catalog.source: page.text, **condition_bodies})
+            if eligibility:
+                column = "free-model eligibility: " + "; ".join(eligibility)
             if changes:
                 moved.append("page_catalog: " + "; ".join(changes))
         if entry.data_use is not None:
@@ -216,10 +251,20 @@ async def _ask[A](send: Callable[[], Awaitable[A]], attempts: int, backoff: floa
     return None, last
 
 
+def page_response_ok(response: httpx.Response) -> bool:
+    """Only a final 2xx response can supply page or catalog evidence.
+
+    Callers keep their own retries, deadlines and failure verdicts. Error and
+    unfinished redirect bodies must never confirm a quote, model or retirement.
+    """
+    return response.is_success and not browser_challenge(response)
+
+
 async def _read(client: httpx.AsyncClient, url: str, attempts: int, backoff: float,
-                named: bool = False) -> tuple[httpx.Response | None, ProbeResult | None]:
-    """The page at `url`, or the verdict that reading it already is: a 401, 403
-    or 429 is a wall rather than an answer, a 5xx or a network error is asked
+                named: bool = False, *, page: bool = False
+                ) -> tuple[httpx.Response | None, ProbeResult | None]:
+    """The page at `url`, or the verdict that reading it already is: a 401, 403,
+    429 or 451 is a wall rather than an answer, a 5xx or a network error is asked
     again, and any other 4xx is the page gone. `named` puts the url in the
     verdict, for a page the probe reached through another one."""
     resp, last = await _ask(lambda: client.get(url, timeout=TIMEOUT, follow_redirects=True),
@@ -228,12 +273,19 @@ async def _read(client: httpx.AsyncClient, url: str, attempts: int, backoff: flo
         where = f"{url} " if named else ""
         return None, ProbeResult(ProbeStatus.INCONCLUSIVE,
                                  f"{where}unreachable after {attempts} attempts: {last}")
+    if page:
+        resp = await recover_page(client, resp)
+    if page_response_ok(resp):
+        return resp, None
     said = f"{url} answered " if named else ""
-    if resp.status_code in (401, 403, 429):
+    # RFC7725 section3: 451 establishes neither existence nor nonexistence.
+    # https://www.rfc-editor.org/rfc/rfc7725 — checked 2026-10-12.
+    if resp.status_code in (401, 403, 429, 451):
         return None, ProbeResult(ProbeStatus.INCONCLUSIVE, f"blocked: {said}HTTP {resp.status_code}")
     if resp.status_code >= 400:
         return None, ProbeResult(ProbeStatus.FAIL, f"page gone: {said}HTTP {resp.status_code}")
-    return resp, None
+    return None, ProbeResult(ProbeStatus.INCONCLUSIVE,
+                             f"page not read: {said}HTTP {resp.status_code}")
 
 
 def followed_url(index: object, follow: Follow) -> str | None:
@@ -267,11 +319,11 @@ async def _read_followed(client: httpx.AsyncClient, entry: Entry, index: httpx.R
         return None, ProbeResult(ProbeStatus.INCONCLUSIVE,
                                  f"the index at {entry.probe.endpoint} names no page in "
                                  f"{entry.probe.follow.field}")
-    return await _read(client, url, attempts, backoff, named=True)
+    return await _read(client, url, attempts, backoff, named=True, page=True)
 
 
 async def _read_free_list(client: httpx.AsyncClient, entry: Entry, catalog: httpx.Response,
-                          attempts: int, backoff: float
+                          attempts: int, backoff: float, *, today: date | None = None
                           ) -> tuple[httpx.Response | None, ProbeResult | None]:
     """The catalog with the vendor's free marks on it — see join_free_list. A
     list that cannot be read leaves the offer unchecked rather than unmet:
@@ -280,7 +332,7 @@ async def _read_free_list(client: httpx.AsyncClient, entry: Entry, catalog: http
     url = entry.probe.free_list
     listed, failure = await _fetch_page(client, url, attempts, backoff)
     if listed is not None:
-        joined, failure = join_free_list(catalog, listed, entry.probe.lane)
+        joined, failure = join_free_list(catalog, listed, entry.probe.lane, today=today)
         if joined is not None:
             return joined, None
     return None, ProbeResult(ProbeStatus.INCONCLUSIVE, f"free list {url} {failure}")
@@ -295,7 +347,8 @@ def join_free_list_sync(client: httpx.Client, entry: Entry, catalog: httpx.Respo
         listed = client.get(url, follow_redirects=True)
     except httpx.HTTPError as exc:
         return None, f"free list {url} unreachable: {exc}"
-    if listed.status_code != 200:
+    listed = recover_page_sync(client, listed)
+    if not page_response_ok(listed):
         return None, f"free list {url} answered HTTP {listed.status_code}"
     joined, failure = join_free_list(catalog, listed, entry.probe.lane)
     return (joined, "") if joined is not None else (None, f"free list {url} {failure}")
@@ -311,6 +364,8 @@ async def probe_page_url(client: httpx.AsyncClient, probe: Probe) -> str:
         resp = await client.get(probe.endpoint, timeout=TIMEOUT, follow_redirects=True)
     except httpx.HTTPError:
         return probe.endpoint
+    if not page_response_ok(resp):
+        return probe.endpoint
     return _index_names(resp, probe.follow) or probe.endpoint
 
 
@@ -321,6 +376,8 @@ def probe_page_url_sync(client: httpx.Client, probe: Probe) -> str:
     try:
         resp = client.get(probe.endpoint, follow_redirects=True)
     except httpx.HTTPError:
+        return probe.endpoint
+    if not page_response_ok(resp):
         return probe.endpoint
     return _index_names(resp, probe.follow) or probe.endpoint
 
@@ -382,11 +439,12 @@ CODEX_STREAM_ENDS = (CODEX_DONE, *CODEX_BROKEN[:2])
 CODEX_READ_CAP = 256 * 1024
 
 
-def codex_probe_body(model: str) -> dict:
+def codex_probe_body(model: str, *, legacy_instructions: bool = False) -> dict:
     """The request, asking something no cache has answered before (see
     keyless_probe_body)."""
     conversation = str(uuid.uuid4())
-    return {"model": model, "instructions": "You are a coding agent. Answer in one word.",
+    instructions = "You are a coding agent. Answer in one word."
+    body = {"model": model,
             "input": [{"type": "message", "role": "user", "content": [
                 {"type": "input_text",
                  "text": f"Reply with the word pong. ({uuid.uuid4().hex[:12]})"}]}],
@@ -394,6 +452,15 @@ def codex_probe_body(model: str) -> dict:
             "reasoning": {}, "store": False, "stream": True,
             "include": ["reasoning.encrypted_content"],
             "prompt_cache_key": conversation, "client_metadata": {"session_id": conversation}}
+    # CLI 0.162.0 HTTP capture, checked 2026-10-09: instructions are developer
+    # input. The supported 0.134.0 capture still has the separate field; both
+    # requests are exercised by _codex_drift and checked by conformance.
+    if legacy_instructions:
+        body["instructions"] = instructions
+    else:
+        body["input"].insert(0, {"type": "message", "role": "developer", "content": [
+            {"type": "input_text", "text": instructions}]})
+    return body
 
 
 def _codex_events(text: str) -> list[str]:
@@ -435,7 +502,8 @@ def _codex_said(answer: tuple[int, str] | str) -> str:
 
 
 async def _codex_call(client: httpx.AsyncClient, url: str, model: str, headers: dict,
-                      attempts: int, backoff: float) -> tuple[int, str] | str:
+                      attempts: int, backoff: float, *, legacy_instructions: bool = False
+                      ) -> tuple[int, str] | str:
     """One Codex turn's request and the stream it gets, read to its end or to
     CODEX_READ_CAP: (status, text), or why there was none. A 5xx (its stream
     left unread), a network error and a turn that breaks off are asked again.
@@ -446,7 +514,8 @@ async def _codex_call(client: httpx.AsyncClient, url: str, model: str, headers: 
     and protocol/src/error.rs, read 2026-09-30) — so one broken turn is not a
     lane that stopped taking the request."""
     async def turn() -> tuple[int, str]:
-        async with client.stream("POST", url, json=codex_probe_body(model),
+        async with client.stream("POST", url, json=codex_probe_body(
+                model, legacy_instructions=legacy_instructions),
                                  headers={**headers, "Accept": "text/event-stream"},
                                  timeout=TIMEOUT, follow_redirects=True) as resp:
             text = ""
@@ -465,14 +534,14 @@ async def _codex_call(client: httpx.AsyncClient, url: str, model: str, headers: 
 
 
 def _codex_ended(text: str) -> bool:
-    """Whether a stream holds an event that ends it, its line arrived whole.
-    The type comes first in the line and the line runs on for the whole
-    response — Kilo's response.completed is about 8 KB — so a read that stops
-    at the type's chunk keeps half a line no JSON parser reads, and a finished
-    turn reads as one that stopped at its last whole event (one read in four
-    on 2026-09-29)."""
-    return any(at != -1 and "\n" in text[at:]
-               for at in (text.find(end) for end in CODEX_STREAM_ENDS))
+    """Stop only after a complete terminal JSON data line has arrived.
+
+    SSE event headers and assistant text can name a terminal type before its
+    payload arrives. The whole data line is needed to distinguish completion
+    from a header, a partial response or words inside another event.
+    """
+    whole = text[:text.rfind("\n") + 1]
+    return any(event in CODEX_STREAM_ENDS for event in _codex_events(whole))
 
 
 async def codex_route_missing(client: httpx.AsyncClient, entry: Entry, attempts: int,
@@ -497,6 +566,24 @@ async def codex_route_missing(client: httpx.AsyncClient, entry: Entry, attempts:
 CATALOG_ENDPOINT_FIELDS = ("endpoints", "supported_endpoints")
 
 
+def _catalog_endpoint_lists(model: dict) -> list[list[str]]:
+    """Explicit nonempty operation lists; absent metadata establishes no limit."""
+    paths = []
+    for field in CATALOG_ENDPOINT_FIELDS:
+        value = model.get(field)
+        if isinstance(value, list) and value and all(isinstance(p, str) and p for p in value):
+            paths.append(value)
+    return paths
+
+
+def _catalog_serves(paths: list[str], operation: str) -> bool:
+    # Inception uses "chat.completions"/"decisions":
+    # https://api.inceptionlabs.ai/v1/models, checked 2026-10-28.
+    # LLMTR and Routeway use URL paths (CATALOG_ENDPOINT_FIELDS above).
+    return any(("/" + p.rstrip("/").replace(".", "/")).endswith("/" + operation)
+               for p in paths)
+
+
 def codex_endpoint_gap(catalog: httpx.Response, entry: Entry) -> str:
     """Why the id a row's Codex profile names cannot take Codex's request by
     its own catalog's word, or "" while nothing says so.
@@ -514,10 +601,8 @@ def codex_endpoint_gap(catalog: httpx.Response, entry: Entry) -> str:
     for row in _catalog_items(catalog, entry.probe.lane) or []:
         if _model_id(row) != model:
             continue
-        for field in CATALOG_ENDPOINT_FIELDS:
-            paths = row.get(field)
-            if (isinstance(paths, list) and paths and all(isinstance(p, str) for p in paths)
-                    and not any(p.rstrip("/").endswith("/responses") for p in paths)):
+        for paths in _catalog_endpoint_lists(row):
+            if not _catalog_serves(paths, "responses"):
                 return (f"codex profile names {model}, which the catalog serves at "
                         f"{', '.join(paths)} only — put an id it serves at /responses first "
                         "in api.model_ids, or take api.codex out")
@@ -781,11 +866,13 @@ async def _codex_drift(client: httpx.AsyncClient, entry: Entry, model: str, head
     sends, at the Codex base + /responses — the lane's own base where the row
     names none — with the same headers. The whole turn is asked, not the
     route: a route can answer and refuse the request (see CODEX_PROBE_TOOL).
+    Both current and legacy instruction shapes must complete: a route that
+    takes only one cannot confirm the published supported client range.
 
     An answer on a row without the field is a lane Codex could call directly,
     with a profile of its own, and a row with the field that stops taking the
-    request hands readers a profile that fails the same way. Asked once where
-    the field is not set, since a refusal there is the ordinary answer, and
+    request hands readers a profile that fails the same way. Each shape is
+    asked once where the field is not set, since a refusal there is ordinary, and
     patiently where it is, since there a refusal is news. A lane that wants an
     id per conversation in its own header is not asked: no Codex profile could
     send it."""
@@ -797,6 +884,10 @@ async def _codex_drift(client: httpx.AsyncClient, entry: Entry, model: str, head
     lane = "public-key" if entry.api.public_key else "keyless"
     answer = await _codex_call(client, url, model, headers, attempts if claimed else 1, backoff)
     took = _codex_completed(answer)
+    if took:
+        answer = await _codex_call(client, url, model, headers, attempts if claimed else 1,
+                                   backoff, legacy_instructions=True)
+        took = _codex_completed(answer)
     if took and not claimed:
         return (f"{lane} POST {url} took the request Codex CLI sends — set api.codex.base_url "
                 f"to {base} and the row gets a Codex profile of its own")
@@ -1016,28 +1107,30 @@ def _keyless_said(answer: httpx.Response | str) -> str:
 
 
 async def _fetch_page(client: httpx.AsyncClient, url: str, attempts: int,
-                      backoff: float) -> tuple[httpx.Response | None, str]:
+                      backoff: float, *, page: bool = True) -> tuple[httpx.Response | None, str]:
     """A second page a row's checks read, or why it could not be read, with the
     patience the probe gives its own endpoint: a 5xx or a network error is
-    retried, and any other answer but a 200 is reported."""
+    retried, and any answer outside 2xx is reported."""
     resp, last = await _ask(lambda: client.get(url, timeout=TIMEOUT, follow_redirects=True),
                             attempts, backoff)
     if resp is None:
         return None, f"unreachable after {attempts} attempts: {last}"
-    if resp.status_code != 200:
+    if page:
+        resp = await recover_page(client, resp)
+    if not page_response_ok(resp):
         return None, f"answered HTTP {resp.status_code}"
     return resp, ""
 
 
 async def _page_beside(client: httpx.AsyncClient, url: str, entry: Entry,
                        probed: httpx.Response, attempts: int,
-                       backoff: float) -> tuple[httpx.Response | None, str]:
+                       backoff: float, *, page: bool = True) -> tuple[httpx.Response | None, str]:
     """The page a check beside the probe reads at `url`: the page the probe
     has just read where `url` is that page — one read, not two — else
     `_fetch_page`'s, or why it could not be read."""
     if url == entry.probe.endpoint and entry.probe.follow is None:
         return probed, ""
-    return await _fetch_page(client, url, attempts, backoff)
+    return await _fetch_page(client, url, attempts, backoff, page=page)
 
 
 async def _fetch_catalog(client: httpx.AsyncClient, url: str, attempts: int,
@@ -1046,7 +1139,7 @@ async def _fetch_catalog(client: httpx.AsyncClient, url: str, attempts: int,
     same patience as the page itself, and anything that is not a JSON list of
     models — a 401, a bot wall, an HTML shell — is reported rather than read as
     an empty catalog, which would call every id dead."""
-    resp, failure = await _fetch_page(client, url, attempts, backoff)
+    resp, failure = await _fetch_page(client, url, attempts, backoff, page=False)
     if resp is None:
         return None, failure
     items = _catalog_items(resp)
@@ -1132,6 +1225,12 @@ def _price_of(model: dict) -> list[float] | None:
     the new-api family publishes multipliers instead (see _multiplier_price_of).
     Of a pricing object only the token rows are read; a per-call charge is
     _charges_elsewhere's question."""
+    # SC is a currency, not a free-tier flag. Both ordinary token sides must
+    # be published; cached-input pricing is optional. Public contract:
+    # https://simplellm.eu/docs/models.md, checked 2026-10-14.
+    if any(key in model for key in _FLAT_TOKEN_PRICES):
+        prices = [_number(model.get(key)) for key in _FLAT_TOKEN_PRICES]
+        return prices if all(p is not None for p in prices) else None
     pricing = model.get("pricing")
     if isinstance(pricing, list):
         return _tiered_price_of(pricing)
@@ -1184,14 +1283,18 @@ def _is_withdrawn(model: dict) -> bool:
     """
     if _retired_on(model) is not None:
         return True
-    value = model.get("available", True)
-    if isinstance(value, bool):
-        return not value
-    if isinstance(value, (int, float)):
-        return value == 0
-    if isinstance(value, str):
-        return value.strip().lower() in ("false", "no", "off", "0")
-    return False
+    # SimpleLLM publishes enabled/status alongside prices and explicitly asks
+    # clients to exclude disabled/planned entries: /docs/models.md, 2026-10-14.
+    for key in ("available", "enabled"):
+        value = model.get(key)
+        if isinstance(value, bool) and not value:
+            return True
+        if isinstance(value, (int, float)) and value == 0:
+            return True
+        if isinstance(value, str) and value.strip().lower() in ("false", "no", "off", "0"):
+            return True
+    status = model.get("status")
+    return isinstance(status, str) and status.strip().lower() in ("planned", "disabled", "unavailable")
 
 
 # Where a catalog dates the end of a row itself: Requesty's `retires`, a Unix
@@ -1351,9 +1454,9 @@ def free_list_marks(resp: httpx.Response) -> dict[str, str] | str:
     """The endpoints a free list marks free, keyed as `_free_endpoints` keys
     them, each with the date the vendor retires it or "" — or, where the
     document cannot be read as a free list, why. A retirement is a DEPRECATION
-    attribute holding the last day the endpoint is supported, as the vendor
-    writes it ("09/21/2026"); the model's page then reads "Free Endpoint:
-    Deprecated"."""
+    attribute announcing a deprecation date, as the vendor writes it
+    ("09/21/2026"). The model page can give a different last supported day;
+    the date alone does not establish that the endpoint is unavailable."""
     endpoints = _free_endpoints(resp)
     if isinstance(endpoints, str):
         return endpoints
@@ -1402,15 +1505,14 @@ def _utc_day(stamp: object) -> date | None:
 
 
 def join_free_list(catalog: httpx.Response, free_list: httpx.Response,
-                   lane: str | None = None) -> tuple[httpx.Response | None, str]:
+                   lane: str | None = None, *, today: date | None = None
+                   ) -> tuple[httpx.Response | None, str]:
     """The catalog as it would read if it carried the free list's marks itself,
     or None and why the list could not be read.
 
     A catalog that prices nothing leaves require_zero_price nothing to read, so
-    the marks go where a flag would be: an id the list marks is `free`, one the
-    list also dates for retirement is `available: false` as well — the vendor's
-    word that the endpoint is going, said before the day it stops answering —
-    and every other id is `free: false`, the ones the catalog keeps answering
+    the marks go where a flag would be: an id the list marks is `free`, and every
+    other id is `free: false`, the ones the catalog keeps answering
     with no page at all among them. From there the family check, the dead ids
     and the unlisted ones read it as they read Kilo's isFree or Routeway's
     available. A catalog that is not JSON is handed back as it came, for the
@@ -1418,15 +1520,27 @@ def join_free_list(catalog: httpx.Response, free_list: httpx.Response,
     marks = free_list_marks(free_list)
     if isinstance(marks, str):
         return None, marks
+    # The announced date is not proof of withdrawal: GLM's attribute says
+    # 10/27 but its notice says supported through 10/28, with isDeprecated=false.
+    # https://build.nvidia.com/z-ai/glm-5-3 (checked 2026-10-15).
+    # Expire verification after the date and require current endpoint review.
+    for key, stamp in marks.items():
+        if not stamp:
+            continue
+        try:
+            announced_day = datetime.strptime(stamp, "%m/%d/%Y").date()
+        except ValueError:
+            return None, f"unreadable retirement date {stamp!r} for {key}"
+        if announced_day < (today or date.today()):
+            return None, (f"announced retirement date {stamp} has passed for {key}; "
+                          "current endpoint availability requires review")
     try:
         data = catalog.json()
     except json.JSONDecodeError:
         return catalog, ""
     for model in _rows(data, lane):
-        retired = marks.get(_id_squash(_model_id(model)))
-        model["free"] = retired is not None
-        if retired:
-            model["available"] = False
+        key = _id_squash(_model_id(model))
+        model["free"] = key in marks
     return httpx.Response(catalog.status_code, json=data, request=catalog.request), ""
 
 
@@ -1441,6 +1555,7 @@ def _empty_lane(resp: httpx.Response, lane: str) -> str:
 
 
 def _check_api_models(resp: httpx.Response, entry: Entry) -> str | None:
+    from .models import entry_id_family
     items = _catalog_items(resp, entry.probe.lane)
     if items is None:
         return "response is not JSON"
@@ -1455,7 +1570,7 @@ def _check_api_models(resp: httpx.Response, entry: Entry) -> str | None:
         # is glm-5.2's, and must not keep glm-5 alive after glm-5's own id left.
         matches = [
             m for m in items
-            if id_family(families, _model_id(m)) == family.family
+            if entry_id_family(entry, _model_id(m), families) == family.family
             and entry.probe.carries_marker(_model_id(m))
         ]
         if not matches:
@@ -1486,6 +1601,7 @@ def _check_api_models(resp: httpx.Response, entry: Entry) -> str | None:
 
 
 _FREE_FLAGS = ("isFree", "is_free", "free")
+_FLAT_TOKEN_PRICES = ("price_sc_input", "price_sc_output")
 
 
 def _free_flag(model: dict) -> bool | None:
@@ -1535,8 +1651,18 @@ def _is_free(model: dict) -> bool:
     """Free by the catalog's own account: its flag where it has one, else every
     price it publishes for the row at zero."""
     flag = _free_flag(model)
+    # The SC catalog's tier label is not its billing contract: its two prices
+    # are. Do not let a stale free label hide a newly metered input or output.
+    if any(key in model for key in _FLAT_TOKEN_PRICES):
+        prices = _price_of(model)
+        return (flag is not False and prices is not None and all(p == 0 for p in prices)
+                and not _charges_elsewhere(model))
     if flag is not None:
         return flag
+    # NovAI explicitly labels free rows, leaving paid rows unpriced:
+    # https://aiapi-pro.com/v1/models (checked 2026-10-22).
+    if model.get("pricing") == "free":
+        return True
     prices = _price_of(model)
     return prices is not None and all(p == 0 for p in prices) and not _charges_elsewhere(model)
 
@@ -1614,7 +1740,8 @@ def _rendered(text: str) -> str:
 
 
 def _check_page_keywords(resp: httpx.Response, entry: Entry) -> str | None:
-    rendered = _as_read(_rendered(resp.text))
+    from .quotes import flatten
+    rendered = flatten(TAG.sub(" ", _rendered(resp.text)))
     # An explicit withdrawal outranks the keywords: vendors leave the free tier
     # described on the page and add the bad news next to it. Read against the
     # rendered page for the same reason the keywords are: the sentence that
@@ -1622,18 +1749,18 @@ def _check_page_keywords(resp: httpx.Response, entry: Entry) -> str | None:
     dead = dead_marker_hit(rendered)
     if dead is not None:
         return f'offer withdrawn: page says "{dead}"'
-    absent = [k for k in entry.probe.keywords if _as_read(k) not in rendered]
-    whole = (_as_read(resp.text)
+    absent = [k for k in entry.probe.keywords if flatten(k) not in rendered]
+    whole = (flatten(resp.text)
              if absent or entry.probe.machinery_keywords else "")
     # Which half of the response lacked a keyword is what a runner-only failure
     # turns on, and no copy of the page survives the run: a keyword the bytes
     # still carry means the stripping ate it and the row wants
     # machinery_keywords; one absent from the bytes means the origin served
     # something else.
-    missing = [k if _as_read(k) not in whole else f"{k} (in the page's machinery only)"
+    missing = [k if flatten(k) not in whole else f"{k} (in the page's machinery only)"
                for k in absent]
     if entry.probe.machinery_keywords:
-        missing += [k for k in entry.probe.machinery_keywords if _as_read(k) not in whole]
+        missing += [k for k in entry.probe.machinery_keywords if flatten(k) not in whole]
     if not missing:
         return None
     # And the size: a page that answers 200 with a shell or a variant is a
@@ -1641,15 +1768,91 @@ def _check_page_keywords(resp: httpx.Response, entry: Entry) -> str | None:
     return f"missing keywords: {', '.join(missing)} — {len(resp.text):,} bytes read"
 
 
+def _table_models(body: str, headers: list[str], name_column: str,
+                  value_columns: list[str], included_value: str) -> list[str]:
+    from .quotas import _Tables
+    parser = _Tables()
+    parser.feed(body)
+    tables = [table for table in parser.tables if set(headers) <= set(table['headers'])]
+    if len(tables) != 1:
+        return []
+    table = tables[0]
+    if any(table['headers'].count(header) != 1 for header in headers):
+        return []
+    name = table['headers'].index(name_column)
+    values = [table['headers'].index(column) for column in value_columns]
+    counts = Counter(row[name].casefold() for row in table['rows'] if len(row) > name)
+    return [row[name] for row in table['rows']
+            if len(row) > max(name, *values) and counts[row[name].casefold()] == 1
+            and all(row[i].casefold() == included_value.casefold() for i in values)]
+
+
+def free_table_models(resp: httpx.Response, entry: Entry) -> list[str] | None:
+    """One eligibility extraction for family validity and complete table review."""
+    if entry.probe.type is not ProbeType.PAGE_KEYWORDS:
+        return None
+    if binding := entry.probe.model_prices:
+        return _table_models(resp.text, binding.headers, binding.name_column,
+                             binding.price_columns, binding.free_value)
+    if binding := entry.probe.model_plan:
+        return _table_models(resp.text, binding.headers, binding.name_column,
+                             [binding.plan_column], binding.included_value)
+    return None
+
+
+def model_table_findings(resp: httpx.Response, entry: Entry, today: date) -> list[str]:
+    """Account for every eligible row without promoting a waiting family."""
+    from .quotas import UNKNOWN_RECHECK_DAYS
+    free = free_table_models(resp, entry)
+    if free is None:
+        if (entry.probe.type is ProbeType.PAGE_KEYWORDS and entry.page_catalog is None
+                and entry.newcomers):
+            missing = [n.family for n in entry.newcomers if not family_named(resp, entry, n.family)]
+            if missing:
+                return ["model inventory: waiting models no longer named by current source: " + ", ".join(missing)]
+        return []
+    notes = []
+    names = {_squash(name) for name in free}
+    waiting_names = {_squash(n.table_name) for n in entry.newcomers if n.table_name}
+    exclusions = {_squash(e.name) for e in entry.probe.model_exclusions}
+    def key(name: str) -> str:
+        return _squash(re.sub(r'\s+free$', '', name, flags=re.I))
+    covered = {key(m.table_name or m.family) for m in entry.models}
+    covered.update(key(n.family) for n in entry.newcomers if not n.table_name)
+    lane = lane_ids(entry)
+    if lane:
+        covered.update(key(mid.rsplit('/', 1)[-1].removesuffix(':free').removesuffix('-free'))
+                       for mid in lane.model_ids)
+    unknown = [name for name in free if _squash(name) not in exclusions | waiting_names
+               and key(name) not in covered]
+    if unknown:
+        notes.append("model table: unrecorded free models: " + ", ".join(unknown))
+    missing = [n.family for n in entry.newcomers
+               if (_squash(n.table_name) not in names if n.table_name else
+                   not any(key(n.family) == key(name) for name in free))]
+    if missing:
+        notes.append("model table: newcomers no longer evidenced as free: " + ", ".join(missing))
+    for excluded in entry.probe.model_exclusions:
+        if _squash(excluded.name) not in names:
+            notes.append("model table: exclusion no longer names an eligible row: " + excluded.name)
+        elif excluded.reviewed_on > today or (today - excluded.reviewed_on).days >= UNKNOWN_RECHECK_DAYS:
+            notes.append("model table: exclusion needs a dated review: " + excluded.name)
+    if not free:
+        notes.append("model table: no unambiguous eligible rows; complete inventory could not be checked")
+    return notes
+
+
 def unevidenced_families(resp: httpx.Response, entry: Entry) -> list[str]:
     """Families the README publishes that the probed page does not even name.
 
     What `_check_api_models` asks of a catalog, asked of a page: the keywords
     anchor the offer, and this asks whether the models listed beside it are
-    still there. Deliberately weak. It reads the raw body, not the rendered
-    text the keywords are held to, so a name the vendor serves only inside its
-    page data counts; whether the page names the model as free is the stronger
-    question, and the one an anchor keyword answers. A family also counts where
+    still there. It reads rendered text, as the offer keywords do. A model in
+    page machinery needs an explicit machinery keyword; comments never count.
+    Whether the page names the model as free is the stronger
+    question, and the one an anchor keyword answers. With model_prices, both
+    prices must instead be free in the same row of one bound table. With model_plan,
+    that row must mark inclusion in the named plan. A family also counts where
     its parts are named close together (see _named_in_parts).
 
     It never fails an entry: three failures archive a row, and a marketing page
@@ -1660,9 +1863,26 @@ def unevidenced_families(resp: httpx.Response, entry: Entry) -> list[str]:
     """
     if entry.probe.type is not ProbeType.PAGE_KEYWORDS:
         return []
-    squashed, text = _squash(resp.text), resp.text.lower()
+    free = free_table_models(resp, entry)
+    if free is not None:
+        return [m.family for m in entry.models
+                if not any((_squash(m.table_name) == _squash(name) if m.table_name else
+                            names_family(m.family, _squash(name), _squash)) for name in free)]
+    rendered = _rendered(resp.text)
+    squashed, text = _squash(rendered), rendered.lower()
+    machinery = " ".join(k for k in entry.probe.machinery_keywords
+                         if _squash(k) in _squash(_COMMENT.sub("", resp.text)))
+    # Client-only prose offers bind each ID to its own identity and allowance
+    # source. Both sources are checked below in probe_entry, including failures.
+    bound = {b.family for mid, b in entry.client_lane.model_bindings.items()
+             if mid in entry.client_lane.model_ids} if entry.client_lane else set()
+    labels = {model.model.family: model.name for model in entry.page_catalog.models
+              if model.model and model.listed and not model.expired} if entry.page_catalog else {}
     return [m.family for m in entry.models
-            if not names_family(m.family, squashed, _squash) and not _named_in_parts(m.family, text)]
+            if not names_family(m.family, squashed, _squash) and not _named_in_parts(m.family, text)
+            and m.family not in bound
+            and not names_family(m.family, _squash(machinery), _squash)
+            and not (m.family in labels and names_family(labels[m.family], squashed, _squash))]
 
 
 def family_named(resp: httpx.Response, entry: Entry, family: str) -> bool | None:
@@ -1684,8 +1904,8 @@ def family_named(resp: httpx.Response, entry: Entry, family: str) -> bool | None
 
 def dead_model_ids(resp: httpx.Response, entry: Entry) -> list[str]:
     """Ids in `api.model_ids` that the catalog no longer answers for: not in it,
-    retired by its own date, marked unavailable, or — where the row reads
-    prices — no longer free.
+    retired by its own date, marked unavailable, explicitly served only at
+    other operations, or — where the row reads prices — no longer free.
 
     No family or keyword check reads this field, and it fills the generated
     configs a reader pastes into a client. It is never asked of a page: a name
@@ -1722,6 +1942,10 @@ def dead_model_ids(resp: httpx.Response, entry: Entry) -> list[str]:
             dead.append(f"{wanted} is marked unavailable")
         elif entry.probe.require_zero_price and not _is_free(model):
             dead.append(_price_note(model, entry.probe.free_list is not None))
+        elif (entry.api and entry.api.openai_compatible
+              and (paths := next((p for p in _catalog_endpoint_lists(model)
+                                  if not _catalog_serves(p, "chat/completions")), None))):
+            dead.append(f"{wanted} is served at {', '.join(paths)} only, not chat completions")
     return dead
 
 
@@ -1729,12 +1953,11 @@ def unlisted_free_ids(resp: httpx.Response, entry: Entry) -> list[str]:
     """Ids the catalog serves free that `api.model_ids` does not carry — the
     other direction of dead_model_ids, and the one that sees a lane grow.
 
-    The lane is the row's own definition of it, not a bare zero. An id is in
-    it when it carries `probe.free_marker` where the row sets one, is free by
-    the catalog's own account (see _is_free), and is not marked unavailable —
-    the tests the offer check and dead_model_ids already apply. The marker
-    matters: OpenRouter and Kilo both price Google's Lyria music previews at 0
-    with no :free suffix. The check is asked only where prices are read, since
+    Discovery reads the vendor's free flags/prices independently of the
+    spelling of an id. A configured free_marker still scopes qualification,
+    but must not hide a new free route with another suffix. A zero-priced
+    music or decision model needs an explicit human exclusion, not a silent
+    spelling filter. This check is asked only where prices are read, since
     on a catalog that publishes none every id would be free, or where the
     vendor lists its free lane under a key of its own (`probe.lane`): that lane
     is the vendor's whole account of what is free, so its ids count without a
@@ -1756,7 +1979,7 @@ def unlisted_free_ids(resp: httpx.Response, entry: Entry) -> list[str]:
     unlisted = set()
     for model in _catalog_items(resp, entry.probe.lane) or []:
         mid = _model_id(model)
-        if (mid and mid not in known and entry.probe.carries_marker(mid)
+        if (mid and mid not in known
                 and (_is_free(model) or not entry.probe.require_zero_price)
                 and not _is_withdrawn(model)):
             unlisted.add(mid)
@@ -1795,7 +2018,7 @@ def _stale_ids_detail(dead: list[str], unlisted: list[str], entry: Entry) -> str
 # re-reading the vendor's page can restate. Each follows a family verdict
 # after " | ".
 _FOR_A_HUMAN = ("api.model_ids ", "client_lane.model_ids ", "zero-priced ids in the catalog ",
-                "ids the free list ", "ids in the ",
+                "ids the free list ", "ids in the ", "model table: ", "model inventory: ",
                 "api.public_key ", "keyless ", "public-key ", "anthropic route ", "codex route ",
                 "data_use ", "border: ", "border could ")
 
@@ -1812,6 +2035,16 @@ def for_a_human(detail: str) -> str:
     return ""
 
 
+def _catalog_output_limit(model: dict) -> int | None:
+    """The smallest positive output cap the catalog publishes for a model."""
+    top = model.get("top_provider")
+    # gateway.vlm.run/v1/openai/models uses max_output_tokens (checked 2026-10-26).
+    values = [model.get("max_output_tokens"),
+              top.get("max_completion_tokens") if isinstance(top, dict) else None]
+    return min((value for value in values if type(value) is int and value > 0),
+               default=None)
+
+
 def stale_ids(catalog: httpx.Response, entry: Entry) -> str:
     """What the catalog says about this row's published ids, in both
     directions, or "" while they are all backed. A passing row gets it as its
@@ -1821,7 +2054,7 @@ def stale_ids(catalog: httpx.Response, entry: Entry) -> str:
     dead = dead_model_ids(catalog, entry)
     unlisted = unlisted_free_ids(catalog, entry)
     notes = [_stale_ids_detail(dead, unlisted, entry)] if dead or unlisted else []
-    if entry.api and entry.api.model_limits:
+    if entry.api and (entry.api.model_limits or entry.api.opencode_output_tokens):
         rows = {}
         for row in _catalog_items(catalog, entry.probe.lane) or []:
             if mid := _model_id(row):
@@ -1831,8 +2064,12 @@ def stale_ids(catalog: httpx.Response, entry: Entry) -> str:
                 continue
             row = rows[mid]
             top = row.get("top_provider")
-            values = {"context_tokens": row.get("context_length"),
-                      "output_tokens": top.get("max_completion_tokens") if isinstance(top, dict) else None}
+            contexts = [row.get("context_length"),
+                        top.get("context_length") if isinstance(top, dict) else None]
+            context = min((value for value in contexts if type(value) is int and value > 0),
+                          default=None)
+            values = {"context_tokens": context,
+                      "output_tokens": _catalog_output_limit(row)}
             changed = []
             for field, value in values.items():
                 if type(value) is not int or value <= 0:
@@ -1841,6 +2078,16 @@ def stale_ids(catalog: httpx.Response, entry: Entry) -> str:
                     changed.append(f"{field}={value} (recorded {recorded})")
             if changed:
                 notes.append(f"api.model_limits {mid}: " + ", ".join(changed))
+        for mid, budget in entry.api.opencode_output_tokens.items():
+            if mid not in entry.api.model_ids or mid not in rows:
+                continue
+            parameters = rows[mid].get("supported_parameters")
+            for parameter in (OPENCODE_OUTPUT_FIELD, OPENCODE_LEGACY_OUTPUT_FIELD):
+                if not isinstance(parameters, list) or parameter not in parameters:
+                    notes.append(f"api.opencode_output_tokens {mid}: {parameter} unavailable")
+            maximum = _catalog_output_limit(rows[mid])
+            if maximum is not None and maximum < budget:
+                notes.append(f"api.opencode_output_tokens {mid}: budget {budget} exceeds output limit {maximum}")
     return " | ".join(notes)
 
 
@@ -1881,18 +2128,19 @@ def _named_in_parts(family: str, text: str) -> bool:
     & Opus 4.6" is two models sharing one version, neither a substring of the
     page.
 
-    Each part must start where a name starts, or the version half of a family
-    matches inside a different version and vouches for a model nobody offers:
-    "Opus 4.5" would name opus-5. Only the left edge is anchored, since a name
-    can end a sentence ("MiniMax 2.1."). A dotted version part is matched
+    Each part must be a complete word: "Qwen3-VL-Plus" is not qwen-vl-plus.
+    Gaps cannot swallow an extra hyphenated component: qwen-doc-turbo does not
+    name qwen-turbo. A name can still end a sentence ("MiniMax 2.1.").
+    A dotted version part is matched
     through _version_pattern, because the letter in front of a version number
     is the vendor's and moves: "MiniMax 2.1" and "MiniMax M2.1" are one model.
     """
     parts = [p for p in re.split(r"[\s_-]+", family.lower()) if p]
     if len(parts) < 2:
         return False
-    spread = r"[^\n]{0,%d}?" % NAME_SPREAD
-    anchored = (r"(?<![\w.])" + (_version_pattern(p) or re.escape(p)) for p in parts)
+    spread = r"(?:(?![-_]\s*[a-z0-9]+\s*[-_])[^\n]){0,%d}?" % NAME_SPREAD
+    anchored = (r"(?<![\w.])" + (_version_pattern(p) or re.escape(p)) + r"(?!\w)"
+                for p in parts)
     return re.search(spread.join(anchored), text) is not None
 
 
@@ -1966,12 +2214,18 @@ def apply_results(entries: list[Entry], results: dict[str, ProbeResult],
     return needs_attention
 
 
-async def _amain(registry_path: Path, failures_dir: Path, dry_run: bool = False) -> int:
+async def _amain(registry_path: Path, failures_dir: Path, dry_run: bool = False,
+                 ids: list[str] | None = None) -> int:
     """Returns the number of rows that FAILED, so a dry run can refuse to be
     chained past with `&&`. Flags that verify a row — stale-ids, stale-models —
     are not counted; neither is INCONCLUSIVE, which is the row's problem to
-    report and not the run's."""
+    report and not the run's. A targeted run also counts INCONCLUSIVE because
+    it has no later scout to handle an unavailable verification."""
     entries = load_registry(registry_path)
+    selected = set(ids or ())
+    unknown = selected - {e.id for e in entries}
+    if unknown:
+        raise ValueError('unknown provider ids: ' + ', '.join(sorted(unknown)))
     sem = asyncio.Semaphore(CONCURRENCY)
 
     # One date for the whole run: a notice's hold is read against it by the probe
@@ -1986,9 +2240,13 @@ async def _amain(registry_path: Path, failures_dir: Path, dry_run: bool = False)
     # A row archived for good is not even asked: no answer could bring it back,
     # a retired endpoint is meant to be dead, and a delisted row can point at a
     # service the blocklist says never to fetch.
-    probed = [e for e in entries if not is_archived_for_good(e, today)]
-    async with httpx.AsyncClient(headers=UA) as client:
-        outcomes = await asyncio.gather(*(bounded(e) for e in probed))
+    probed = [e for e in entries if not is_archived_for_good(e, today)
+              and (not selected or e.id in selected)]
+    if selected - {e.id for e in probed}:
+        raise ValueError('selected providers must have their delisting or retirement resolved before verification')
+    with page_evidence(failures_dir / "page-reads"):
+        async with httpx.AsyncClient(headers=UA) as client:
+            outcomes = await asyncio.gather(*(bounded(e) for e in probed))
     results = {e.id: r for e, r in zip(probed, outcomes)}
     flagged = apply_results(entries, results, today)
     if dry_run:
@@ -2011,7 +2269,8 @@ async def _amain(registry_path: Path, failures_dir: Path, dry_run: bool = False)
     # locally.
     for row in payload:
         print(f"  {row['id']}: {row['status']} — {row['detail'] or 'no detail'}")
-    return sum(1 for _, r in flagged if r.status is ProbeStatus.FAIL)
+    return sum(1 for _, r in flagged if r.status is ProbeStatus.FAIL
+               or (selected and r.status is ProbeStatus.INCONCLUSIVE))
 
 
 def main() -> None:
@@ -2020,10 +2279,14 @@ def main() -> None:
     parser.add_argument("--failures", type=Path, default=Path("failures"))
     parser.add_argument("--dry-run", action="store_true",
                         help="probe everything and report, but write no verification dates")
+    parser.add_argument("--ids", nargs='+', help="verify only these provider IDs; reject unknown or permanently archived IDs")
     args = parser.parse_args()
-    failed = asyncio.run(_amain(args.registry, args.failures, args.dry_run))
+    try:
+        failed = asyncio.run(_amain(args.registry, args.failures, args.dry_run, args.ids))
+    except ValueError as exc:
+        parser.error(str(exc))
     # A real run hands its failures to the scout and must exit 0 for the
     # workflow to reach it; a dry run is read by a person, and a person
     # chaining it in a shell wants the chain to stop here.
-    if args.dry_run and failed:
+    if (args.dry_run or args.ids) and failed:
         raise SystemExit(1)

@@ -3,7 +3,7 @@ name: read-page
 # A page the maintainer's machine cannot reach is not a verdict: a runner
 # reaches the open internet from a different address, so the read moves here.
 #
-# It reads with the prober's own client, User-Agent and stripping, which is the
+# It first reads with the prober's own client, User-Agent and stripping, which is the
 # point: a body `curl -o` saves without --compressed can be gzip, in which a
 # text search finds no word of the page.
 # What this prints is what a probe would match against — the rendered text and
@@ -54,6 +54,7 @@ jobs:
           from pathlib import Path
 
           import httpx
+          from freetier_radar.page_reader import page_evidence, recover_page
 
           from freetier_radar.prober import (UA, _as_read, _plain_spaces, _rendered,
                                              challenge_marker_hit)
@@ -78,6 +79,8 @@ jobs:
                           print(f"- **unreachable from the runner too**: {type(exc).__name__}: {exc}")
                           bad += 1
                           continue
+                      with page_evidence(out / "page-reads"):
+                          resp = await recover_page(client, resp)
                       raw, text = resp.text, _rendered(resp.text)
                       name = re.sub(r"[^A-Za-z0-9._-]+", "_", url)[:120]
                       (out / f"{name}.html").write_text(raw, encoding="utf-8")

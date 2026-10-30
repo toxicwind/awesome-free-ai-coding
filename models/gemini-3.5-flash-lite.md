@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'gemini-3.5-flash-lite free: 1 provider, limits and ids, verified 2026-10-08'
-description: gemini-3.5-flash-lite is served free by Google AI Studio (Gemini API). It asks for no card. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'gemini-3.5-flash-lite free: 1 provider, limits and ids, provider probes 2026-10-26'
+description: gemini-3.5-flash-lite is served free by Google AI Studio (Gemini API). It asks for no card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/gemini-3.5-flash-lite/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: gemini-3.5-flash-lite
 ---
 
@@ -11,7 +11,7 @@ crumb: gemini-3.5-flash-lite
 
 # Where gemini-3.5-flash-lite is free
 
-**One row on the list serves `gemini-3.5-flash-lite` free:** Google AI Studio (Gemini API). It asks for no card. The published offer was checked on 2026-10-08 and is rechecked twice a week. It measures **notable**: in the upper half of the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/models/gemini-3-5-flash-lite), below its strong bar.
+**One row on the list serves `gemini-3.5-flash-lite` free:** Google AI Studio (Gemini API). It asks for no card. The provider's last scheduled probe was on 2026-10-26; its offer is rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: gemini-3.5-flash-lite
 
 ### [Google AI Studio (Gemini API)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/google-ai-studio/)
 
-🔌 LLM APIs with free tier · no card · not offered in mainland China, Russia, Hong Kong and 13 more places · verified 2026-10-08 · listed since 2026-08-14
+🔌 LLM APIs with free tier · no card · not offered in mainland China, Russia, Hong Kong and 13 more places · last probe 2026-10-26 · listed since 2026-08-14
 
 Free tier on the Gemini API, priced model by model rather than as one account quota
 
@@ -40,16 +40,14 @@ Free eligibility is priced per model. The current Flash, Flash-Lite and Gemma ro
 ## Related models
 
 - [`gemini-3-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3-flash/) — free at Google AI Studio (Gemini API) and Gemini Enterprise Agent Platform express mode (formerly Vertex AI)
-- [`gemini-3.1-pro`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.1-pro/) — free at Google Antigravity and Gemini Enterprise Agent Platform express mode (formerly Vertex AI)
-- [`gemini-3.6-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.6-flash/) — free at Google AI Studio (Gemini API) and Google Antigravity
-- [`gemini-3.7-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.7-flash/) — free at Google AI Studio (Gemini API) and Google Antigravity
 - [`gemini-3.8-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.8-flash/) — free at Google AI Studio (Gemini API) and Google Antigravity
 - [`gemini-2.5-pro`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-2.5-pro/) — free at Gemini Enterprise Agent Platform express mode (formerly Vertex AI)
 - [`gemini-3.1-flash-lite`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.1-flash-lite/) — free at Google AI Studio (Gemini API)
-- [`gemini-3.5-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.5-flash/) — free at Google AI Studio (Gemini API)
+- [`gemini-3.1-pro`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.1-pro/) — free at Gemini Enterprise Agent Platform express mode (formerly Vertex AI)
+- [`gemini-3.6-flash`](https://mvalentsev.github.io/awesome-free-ai-coding/models/gemini-3.6-flash/) — free at Google AI Studio (Gemini API)
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

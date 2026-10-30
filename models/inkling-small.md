@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'inkling-small free: 2 providers, limits and ids, verified 2026-10-08'
-description: inkling-small is served free by OpenRouter (free models) and Kilo Code. None asks for a card; Kilo Code answers with no account at all. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'inkling-small free: 1 provider, limits and ids, provider probes 2026-10-26'
+description: inkling-small is served free by OpenRouter (free models). It asks for no card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/inkling-small/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: inkling-small
 ---
 
@@ -11,7 +11,7 @@ crumb: inkling-small
 
 # Where inkling-small is free
 
-**2 rows on the list serve `inkling-small` free:** OpenRouter (free models) and Kilo Code. None asks for a card; Kilo Code answers with no account at all. The published offers were checked on 2026-10-08 and are rechecked twice a week. It measures **notable**: in the upper half of the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/models/inkling-small), below its strong bar.
+**One row on the list serves `inkling-small` free:** OpenRouter (free models). It asks for no card. The provider's last scheduled probe was on 2026-10-26; its offer is rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: inkling-small
 
 ### [OpenRouter (free models)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/openrouter-free/)
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-09-24
+🧭 Aggregators (one key, many providers) · no card · last probe 2026-10-26 · listed since 2026-09-24
 
 One API key for a rotating set of :free model variants, open-weight and stealth models among them
 
@@ -30,37 +30,20 @@ One API key for a rotating set of :free model variants, open-weight and stealth 
 
 1,000 requests/day per account (after 10 credits purchased all-time)
 
-OpenRouter's FAQ says its free models "have low rate limits" and "are usually not suitable for production use", and its limits page warns that a negative credit balance can produce errors "including for free models" and that a 429 can come from the upstream provider rather than the platform (read 2026-09-27) The docs define the daily counter as "Free-model requests recorded so far in the current UTC day". The higher daily ceiling is granted "starting one credit below the table’s threshold" to absorb rounding and top-up fees.
+OpenRouter's FAQ says its free models "have low rate limits" and "are usually not suitable for production use", and its limits page warns that a negative credit balance can produce errors "including for free models" and that a 429 can come from the upstream provider rather than the platform (read 2026-09-27). The docs define the daily counter as "Free-model requests recorded so far in the current UTC day". The higher daily ceiling is granted "starting one credit below the table’s threshold" to absorb rounding and top-up fees.
 
 </details>
 
 - Base URL: `https://openrouter.ai/api/v1`
 - Key: `OPENROUTER_API_KEY` — get one at <https://openrouter.ai/settings/keys>
 - Anthropic-format base (Claude Code's `ANTHROPIC_BASE_URL`): `https://openrouter.ai/api`
-- Codex CLI: [`configs/codex/openrouter-free.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/openrouter-free.config.toml) — copy it to `~/.codex/`, then `codex -p openrouter-free`; set up on the lane by the vendor's own page, <https://openrouter.ai/docs/cookbook/coding-agents/codex-cli>: "Configure Codex for OpenRouter"
+- Codex CLI: [`configs/codex/openrouter-free.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/openrouter-free.config.toml) — copy it to `~/.codex/`, then `codex -p openrouter-free -m thinkingmachines/inkling-small:free`; set up on the lane by the vendor's own page, <https://openrouter.ai/docs/cookbook/coding-agents/codex-cli>: "Configure Codex for OpenRouter"
 - Callable ids: `thinkingmachines/inkling-small:free`
 - What you send may be used to train or improve models unless you turn that off ([the vendor's words](https://openrouter.ai/docs/guides/privacy/provider-logging)).
 
-### [Kilo Code](https://mvalentsev.github.io/awesome-free-ai-coding/providers/kilo-code/)
+## Rows that listed it before
 
-🤖 Coding agents & CLIs · no card · not offered in Iran, Syria, Cuba and 1 more place · verified 2026-10-08 · listed since 2026-09-24
-
-Open-source VS Code / JetBrains / CLI agent whose $0 plan routes "Auto Free" to the models the Kilo Gateway marks free; the same gateway serves them to any OpenAI client without a key, with BYOK and local models alongside
-
-<details markdown="block">
-<summary>Provider-wide limits</summary>
-
-- Limits, in the vendor's words: 200 requests/hour per IP
-
-$0 a month; no account for the free lane.  The lane is whatever the gateway marks isFree and the free-model lineup rotates. It costs something other than money: every free id carries mayTrainOnYourPrompts, which almost no metered id does. Auto Free routes over the free models the catalog's autoRouting list names. Everything else runs on pay-as-you-go credits or a Kilo Pass subscription. Read 2026-09-21
-
-</details>
-
-- Base URL: `https://api.kilo.ai/api/gateway`
-- Key: none — the lane is anonymous
-- Codex CLI: [`configs/codex/kilo-code.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/kilo-code.config.toml) — copy it to `~/.codex/`, then `codex -p kilo-code`
-- Callable ids: `thinkingmachines/inkling-small:free`
-- What you send may be used to train or improve models ([the vendor's words](https://api.kilo.ai/api/gateway/models)).
+- [Kilo Code](https://mvalentsev.github.io/awesome-free-ai-coding/providers/kilo-code/) — listed 2026-09-24 to 2026-10-22
 
 ## Related models
 
@@ -68,6 +51,6 @@ $0 a month; no account for the free lane.  The lane is whatever the gateway mark
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

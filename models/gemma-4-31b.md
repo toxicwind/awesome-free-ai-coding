@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'gemma-4-31b free: 5 providers, limits and ids, verified 2026-10-08'
-description: gemma-4-31b is served free by OpenRouter (free models), Requesty, NVIDIA NIM (build.nvidia.com), Regolo AI and Opper. None asks for a card. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'gemma-4-31b free: 5 providers, limits and ids, provider probes 2026-10-26'
+description: gemma-4-31b is served free by OpenRouter (free models), Requesty, NVIDIA NIM (build.nvidia.com), Regolo AI and Opper. None asks for a card. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/gemma-4-31b/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-29
 crumb: gemma-4-31b
 ---
 
@@ -11,7 +11,7 @@ crumb: gemma-4-31b
 
 # Where gemma-4-31b is free
 
-**5 rows on the list serve `gemma-4-31b` free:** OpenRouter (free models), Requesty, NVIDIA NIM (build.nvidia.com), Regolo AI and Opper. None asks for a card. The published offers were checked on 2026-10-08 and are rechecked twice a week. It measures **notable**: in the upper half of the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/models/gemma-4-31b), below its strong bar.
+**5 rows on the list serve `gemma-4-31b` free:** OpenRouter (free models), Requesty, NVIDIA NIM (build.nvidia.com), Regolo AI and Opper. None asks for a card. The providers' last scheduled probes were on 2026-10-26; their offers are rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: gemma-4-31b
 
 ### [OpenRouter (free models)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/openrouter-free/)
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-09-25
+🧭 Aggregators (one key, many providers) · no card · last probe 2026-10-26 · listed since 2026-09-25
 
 One API key for a rotating set of :free model variants, open-weight and stealth models among them
 
@@ -30,20 +30,20 @@ One API key for a rotating set of :free model variants, open-weight and stealth 
 
 1,000 requests/day per account (after 10 credits purchased all-time)
 
-OpenRouter's FAQ says its free models "have low rate limits" and "are usually not suitable for production use", and its limits page warns that a negative credit balance can produce errors "including for free models" and that a 429 can come from the upstream provider rather than the platform (read 2026-09-27) The docs define the daily counter as "Free-model requests recorded so far in the current UTC day". The higher daily ceiling is granted "starting one credit below the table’s threshold" to absorb rounding and top-up fees.
+OpenRouter's FAQ says its free models "have low rate limits" and "are usually not suitable for production use", and its limits page warns that a negative credit balance can produce errors "including for free models" and that a 429 can come from the upstream provider rather than the platform (read 2026-09-27). The docs define the daily counter as "Free-model requests recorded so far in the current UTC day". The higher daily ceiling is granted "starting one credit below the table’s threshold" to absorb rounding and top-up fees.
 
 </details>
 
 - Base URL: `https://openrouter.ai/api/v1`
 - Key: `OPENROUTER_API_KEY` — get one at <https://openrouter.ai/settings/keys>
 - Anthropic-format base (Claude Code's `ANTHROPIC_BASE_URL`): `https://openrouter.ai/api`
-- Codex CLI: [`configs/codex/openrouter-free.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/openrouter-free.config.toml) — copy it to `~/.codex/`, then `codex -p openrouter-free`; set up on the lane by the vendor's own page, <https://openrouter.ai/docs/cookbook/coding-agents/codex-cli>: "Configure Codex for OpenRouter"
+- Codex CLI: [`configs/codex/openrouter-free.config.toml`](https://github.com/mvalentsev/awesome-free-ai-coding/blob/main/configs/codex/openrouter-free.config.toml) — copy it to `~/.codex/`, then `codex -p openrouter-free -m google/gemma-4-31b-it:free`; set up on the lane by the vendor's own page, <https://openrouter.ai/docs/cookbook/coding-agents/codex-cli>: "Configure Codex for OpenRouter"
 - Callable ids: `google/gemma-4-31b-it:free`
 - What you send may be used to train or improve models unless you turn that off ([the vendor's words](https://openrouter.ai/docs/guides/privacy/provider-logging)).
 
 ### [Requesty](https://mvalentsev.github.io/awesome-free-ai-coding/providers/requesty/)
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-09-25
+🧭 Aggregators (one key, many providers) · no card · last probe 2026-10-26 · listed since 2026-09-25
 
 OpenAI-compatible router with free models beside a metered catalog, routing, caching and fallbacks
 
@@ -58,7 +58,7 @@ No credit card for the Free plan, which serves free models only. Routing, cachin
 
 ### [NVIDIA NIM (build.nvidia.com)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/nvidia-nim/)
 
-🔌 LLM APIs with free tier · no card · not offered in Russia, Pakistan, Bangladesh and 11 more places · verified 2026-10-08 · listed since 2026-09-24
+🔌 LLM APIs with free tier · no card · not offered in Russia, Pakistan, Bangladesh and 11 more places · last probe 2026-10-26 · listed since 2026-09-24
 
 Free endpoints for the models build.nvidia.com marks "Free Endpoint", open-weight models from several labs among them, called with a free NVIDIA Developer Program key at integrate.api.nvidia.com/v1 (OpenAI-compatible)
 
@@ -78,7 +78,7 @@ No card, but an API key requires an NVIDIA Developer Program account and phone v
 
 ### [Regolo AI](https://mvalentsev.github.io/awesome-free-ai-coding/providers/regolo/)
 
-🎁 Trials (no card when possible) · no card · verified 2026-10-08 · listed since 2026-09-27
+🎁 Trials (no card when possible) · no card · last probe 2026-10-26 · listed since 2026-09-27
 
 EU (Italian) zero-retention inference; a month of full model access on a daily token allowance, no card
 
@@ -98,11 +98,11 @@ EU (Italian) zero-retention inference; a month of full model access on a daily t
 
 ### [Opper](https://mvalentsev.github.io/awesome-free-ai-coding/providers/opper/)
 
-🧭 Aggregators (one key, many providers) · no card · verified 2026-10-08 · listed since 2026-09-17
+🧭 Aggregators (one key, many providers) · no card · last probe 2026-10-26 · listed since 2026-09-17
 
 EU-hosted model gateway advertising a free route before adding a card; current documentation conflicts on its availability
 
-- Limits, in the vendor's words: Advertised route; free access unconfirmed: Usage allowance: amount not published (period not published); scope not published
+- Limits, in the vendor's words: Advertised route; free access unconfirmed: Usage allowance: published sources disagree (period not published); scope not published
 
 The signup guide advertises a free US-hosted Gemma route before adding a card, but the current directory has no free routes and its Gemma page lists paid alternatives. The API catalog retains the ID without a price or availability claim. Free access remains unconfirmed. Paid credit purchases add a 3% fee. Opper Technology AB operates in Sweden on AWS Stockholm.
 - Base URL: `https://api.opper.ai/v3/compat`
@@ -118,6 +118,6 @@ The signup guide advertises a free US-hosted Gemma route before adding a card, b
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

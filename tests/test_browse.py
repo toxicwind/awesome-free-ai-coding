@@ -1,7 +1,4 @@
-"""browse.html is a static page that reads index.json in the browser, so the
-only contract between them is the field names — checked here against what
-build_index actually publishes, so a renamed field cannot leave the page
-silently showing nothing."""
+"""Exercise Browse's JavaScript against generated data and shared policy copy."""
 import json
 import re
 import shutil
@@ -23,7 +20,7 @@ def _html() -> str:
 def test_browse_page_uses_local_assets_and_reads_index_json_beside_itself():
     html = _html()
     assert 'fetch("index.json"' in html
-    assert re.findall(r'<script\b[^>]*\bsrc="([^"]+)"', html) == ["assets/model-name.js"]
+    assert re.findall(r'<script\b[^>]*\bsrc="([^"]+)"', html) == ["assets/model-name.js", "assets/search.js"]
     assert (PAGE.parent / "assets/model-name.js").is_file()
     assert not re.search(r'<link\b[^>]*rel="stylesheet"', html), "no external styles"
     assert "prefers-color-scheme" in html
@@ -49,8 +46,11 @@ def test_browse_page_reads_only_fields_index_json_publishes():
               delisted={"on": TODAY, "reason": "the same service as the row before it"})],
         TODAY)["entries"]
     entry = live
+    client_row = build_index([make(client_lane={"model_ids": ["native/free"]},
+                                   probe={"type": "api-models", "endpoint": "https://x.ai/models",
+                                          "require_zero_price": True})], TODAY)["entries"][0]
     used = set(re.findall(r"\be\.([a-z_]+)\b", html))
-    published = set(live) | set(gone) | set(folded)
+    published = set(live) | set(gone) | set(folded) | set(client_row)
     assert used and used <= published, used - published
     # an archived row says why it left instead of a date no probe earned
     assert "e.archived_because" in html
@@ -139,21 +139,92 @@ def test_browse_page_finds_a_model_written_the_way_its_vendor_writes_it():
     """The site's search and the 404 page send a model name here as a reader
     writes it: "nemotron 3 ultra" finds a row that lists nemotron-3-ultra. The
     page's own functions run on a row index.json publishes."""
-    from test_site import _js_function
-
-    html = _html()
+    from test_site import SEARCH_ASSETS
     row = build_index([make(offering="A free lane",
                             models=[{"family": "nemotron-3-ultra"}, {"family": "qwen3-8b"}])],
                       TODAY)["entries"][0]
-    harness = (PAGE.parent / "assets/model-name.js").read_text() + "\n" + "\n".join(
-        _js_function(html, n) for n in ("families", "haystack")) + f"""
-    var e = {json.dumps(row)};
-    function finds(q) {{ return haystack(e).indexOf(written(q.trim().toLowerCase())) !== -1; }}
+    harness = SEARCH_ASSETS + f"\nvar e = {json.dumps(row['search'])};" + """
+    FreeTierSearch.prepareOffer(e);
+    function finds(q) { return FreeTierSearch.scoreOffer(e, FreeTierSearch.fold(q).split(" ")) > 0; }
     console.log(JSON.stringify(["Nemotron 3 Ultra", "nemotron-3-ultra", "a free lane",
                                 "qwen 3.8", "qwen3 8b"].map(finds)));"""
     run = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
     assert run.returncode == 0, run.stderr
     assert json.loads(run.stdout) == [True, True, True, False, True]
+
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+@pytest.mark.parametrize("lane", ["api", "client_lane"])
+def test_search_finds_current_callable_ids_without_publishing_or_reviving_a_family(lane):
+    from test_site import SEARCH_ASSETS
+
+    metadata = {"model_ids": ["vendor/preview-35b:free"], "ignored_ids": ["vendor/ended:free"]}
+    if lane == "api":
+        metadata["base_url"] = "https://vendor.example/v1"
+    e = make(models=[{"family": "stable"}], **{lane: metadata},
+             probe={"type": "api-models", "endpoint": "https://vendor.example/models",
+                    "require_zero_price": True})
+    row = build_index([e], TODAY)["entries"][0]
+    script = SEARCH_ASSETS + "\nvar row = " + json.dumps(row["search"]) + ";\n" + """
+    FreeTierSearch.prepareOffer(row);
+    console.log(JSON.stringify(["vendor/preview-35b:free", "VENDOR/PREVIEW_35B:FREE",
+      "vendor/ended:free", "stable"].map(q => FreeTierSearch.scoreOffer(row, [FreeTierSearch.fold(q)]) > 0)));"""
+    run = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
+    assert run.returncode == 0, run.stderr
+    assert json.loads(run.stdout) == [True, True, False, True]
+    assert row["models"] == [{"family": "stable"}]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+def test_client_choice_reuses_config_eligibility_and_never_substitutes_another_client():
+    from test_site import _js_function
+
+    script = """
+    var configClients = {opencode:['shared','bare'], codex:['shared'],
+                         claude:['shared'], litellm:['shared']};
+    var els = {client:{value:''}};
+    """ + _js_function(_html(), "setupClient") + """
+    var results = [];
+    for (const selected of ['', 'opencode', 'codex', 'claude', 'litellm', 'constructor', '__proto__']) {
+      els.client.value = selected;
+      results.push(['shared','bare','native-only','missing'].map(function(id) {
+        return setupClient({id:id,api:{openai_compatible:true}});
+      }));
+    }
+    console.log(JSON.stringify(results));"""
+    result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        ["opencode", "opencode", "", ""], ["opencode", "opencode", "", ""],
+        ["codex", "", "", ""], ["claude", "", "", ""], ["litellm", "", "", ""],
+        ["", "", "", ""], ["", "", "", ""],
+    ]
+
+
+@pytest.mark.parametrize("lane", ["api", "client_lane"])
+def test_matched_id_conditions_preserve_payment_inheritance_and_exact_deadline(lane):
+    metadata = {
+        "model_ids": ["vendor/stable", "vendor/preview"], "ignored_ids": ["vendor/ended"],
+        "model_access": {"vendor/preview": {"source": "https://vendor.example/offer",
+                                           "until": "2026-11-06T01:59:00+05:00"}},
+    }
+    if lane == "api":
+        metadata["base_url"] = "https://vendor.example/v1"
+    row = build_index([make(
+        models=[{"family": "stable"}], **{lane: metadata},
+        access={"source": "https://vendor.example/pricing", "initial_payment_usd": 5,
+                "topup_fee_percent": 8},
+        probe={"type": "api-models", "endpoint": "https://vendor.example/models",
+               "require_zero_price": True},
+    )], TODAY)["entries"][0]
+    labels = row["access_labels"]
+    assert labels["ids"] == {
+        "vendor/stable": "requires $5 one-time top-up + 8% fee",
+        "vendor/preview": "requires $5 one-time top-up + 8% fee; free until 2026-11-06 01:59+05:00",
+    }
+    assert list(labels["models"]) == ["stable"]
+    assert labels["models"]["stable"] == "requires $5 top-up + 8% fee"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
@@ -193,3 +264,67 @@ def test_the_index_names_every_country_a_border_can_name():
     assert keys == sorted(keys)
     order = [c["code"] for c in countries]
     assert order.index("AX") < order.index("AL") and order.index("CN") < order.index("CO")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+def test_comparison_links_resolve_only_three_distinct_live_offers():
+    from test_site import _js_function
+
+    harness = _js_function(_html(), "comparisonIds") + """
+    const rows = [{id:'a'}, {id:'b'}, {id:'c'}, {id:'d'},
+                  {id:'gone',archived:true}, {id:'alias',duplicate_of:'a'}];
+    console.log(JSON.stringify([
+      comparisonIds(null, rows),
+      comparisonIds('missing,a,a,gone,alias,b,c,d', rows),
+      comparisonIds('__proto__,constructor,%3Cscript%3E,b', rows),
+      comparisonIds('d,a', rows)
+    ]));"""
+    result = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [[], ["a", "b", "c"], ["b"], ["d", "a"]]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+def test_comparison_preserves_unknown_training_and_country_scope():
+    from test_site import _js_function
+
+    harness = ("var countryNames = {RU:'Russia',US:'United States'};\nvar dataUseWords = "
+               + json.dumps(build_index([], TODAY)["data_use_words"]) + ";\n") + "\n".join(
+        _js_function(_html(), name) for name in ("countryWords", "trainingWords")) + """
+    console.log(JSON.stringify([
+      countryWords({}), countryWords({border:{left_out:[]}}),
+      countryWords({border:{served:['US']}}), countryWords({border:{left_out:['RU']}}),
+      trainingWords({}), trainingWords({data_use:{trains:'no'}}),
+      trainingWords({data_use:{trains:'yes'}}), trainingWords({data_use:{trains:'opt-out'}})
+    ]));"""
+    result = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        "Country restrictions not established.", "No country exclusions listed.",
+        "Offered in: United States.", "Not offered in: Russia.",
+        "Training policy not established.", "What you send is not used to train models.",
+        "What you send may be used to train or improve models.",
+        "What you send may be used to train or improve models unless you turn that off.",
+    ]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page's script")
+@pytest.mark.parametrize("policy", [None, "no", "yes", "opt-out"])
+def test_comparison_uses_the_reviewed_policy_words_from_the_shared_index(monkeypatch, policy):
+    from freetier_radar.render import DATA_USE_WORDS, build_provider_page
+    from test_site import _js_function
+
+    reviewed = "A reviewed explanation of " + (policy or "unknown") + "."
+    monkeypatch.setitem(DATA_USE_WORDS, policy or "unknown", reviewed)
+    data_use = ({"trains": policy, "quote": "The vendor states its data policy",
+                 "url": "https://x.ai/privacy"} if policy else None)
+    e = make(data_use=data_use)
+    index = build_index([e], TODAY)
+    if policy:
+        assert reviewed in build_provider_page(e, [], TODAY)
+    harness = "var dataUseWords = " + json.dumps(index.get("data_use_words", {})) + ";\n"
+    harness += _js_function(_html(), "trainingWords")
+    harness += "\nconsole.log(JSON.stringify(trainingWords(" + json.dumps(index["entries"][0]) + ")));"
+    result = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == reviewed

@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from .discovery import CURATED_FEEDS
 from .history import EventType, deleted_row_problem, deleted_rows, jsonl_lines, load_history
-from .models import (Entry, FreePart, domain_of, family_names, is_archived, is_blocked,
+from .models import (Entry, FreePart, domain_of, entry_id_family, is_archived, is_blocked,
                      is_connectable, lane_ids, load_blocklist, load_dismissed, load_registry,
                      load_sources, load_watchlist, prose_names, save_registry, under)
 
@@ -173,7 +173,7 @@ def check(root: Path, today: date | None = None) -> list[str]:
                 problems.append(
                     f"registry: {e.id} {lane.field}.no_family_ids names {i}, which is not in "
                     f"{lane.field}.model_ids — list the id there or take it out")
-            named = [m.family for m in e.models if family_names(m.family, i)]
+            named = [family] if (family := entry_id_family(e, i)) else []
             if named:
                 problems.append(
                     f"registry: {e.id} {lane.field}.no_family_ids names {i}, but family "
@@ -184,7 +184,7 @@ def check(root: Path, today: date | None = None) -> list[str]:
     for e in entries:
         lane = lane_ids(e)
         for s in lane.free_since if lane else []:
-            named = [m.family for m in e.models if family_names(m.family, s.id)]
+            named = [family] if (family := entry_id_family(e, s.id)) else []
             if named:
                 problems.append(
                     f"registry: {e.id} {lane.field}.free_since dates {s.id}, which family "
@@ -198,6 +198,10 @@ def check(root: Path, today: date | None = None) -> list[str]:
         if e.page_catalog:
             from .bars import BAR_DAYS
             from datetime import timedelta
+            from .page_catalog import check_model_eligibility
+            for finding in check_model_eligibility(e.page_catalog, {}):
+                if "has no model/plan binding" in finding:
+                    problems.append(f"registry: {e.id} {finding}")
             for m in e.page_catalog.models:
                 if (e.page_catalog.limited_allowance and m.limited and m.hours is not None
                         and m.model and not m.first_free and not m.expired):
@@ -551,9 +555,11 @@ def check_repository(root: Path) -> list[str]:
     # Imported here: claims imports PROSE_LIMITS from this module.
     from .claims import check_claims
     from .layout import check_layout
+    from .presentation import check_presentation
     from .render import CONTRIBUTING, MAP_BEGIN, MAP_END
     problems = [f"layout: {p}" for p in check_layout(root)]
     problems += [f"claims: {p}" for p in check_claims(root)]
+    problems += [f"presentation: {p}" for p in check_presentation(root)]
     text = (root / CONTRIBUTING).read_text(encoding="utf-8")
     if MAP_BEGIN not in text or MAP_END not in text:
         problems.append(f"layout: {CONTRIBUTING} has lost the lines the map section is printed "

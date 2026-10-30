@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'Sail Research free tier: limits, free models, verified 2026-10-08'
+title: 'Sail Research free tier: limits, free models, verified 2026-10-26'
 description: Open-weight models for long-running agents — Kimi K3, GLM-5.3, DeepSeek V4 Pro — behind OpenAI- and Anthropic-compatible APIs, with $5 of free credit every month once a payment method is on the account. Attaching a payment method is required for recurring free credit. Credit spends at per-token…
 permalink: /providers/sail-research/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-28
 crumb: Sail Research
 ---
 
@@ -11,7 +11,7 @@ crumb: Sail Research
 
 # Sail Research free tier
 
-🔌 LLM APIs with free tier · card required · not offered in Russia, Iran, Syria and 2 more places · **live** — last verified by a probe on 2026-10-08 · [sailresearch.com](https://www.sailresearch.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
+🔌 LLM APIs with free tier · card required · not offered in Russia, Iran, Syria and 2 more places · **live** — last verified by a probe on 2026-10-26 · [sailresearch.com](https://www.sailresearch.com) · [back to the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
 ## What you get
 
@@ -19,7 +19,7 @@ Open-weight models for long-running agents — Kimi K3, GLM-5.3, DeepSeek V4 Pro
 
 ## Free models
 
-No model is free by itself here: the free part is an amount the account spends across the catalog, so the column names none. The limits below say what it buys; the ids to call, where the row has them, are under Connect.
+The free offer is a budget for model usage across the catalog. See Limits for its conditions and Connect for API details, where available.
 
 ## Limits, in the vendor's words
 
@@ -40,7 +40,7 @@ What you send is not used to train models. In the vendor's words: “We do not u
 - Base URL: `https://api.sailresearch.com/v1`
 - Key: `SAIL_RESEARCH_API_KEY` — get one at <https://app.sailresearch.com>
 - Callable ids: `moonshotai/Kimi-K3`, `zai-org/GLM-5.3`, `deepseek-ai/DeepSeek-V4-Pro-0813`, `zai-org/GLM-5.3-Flash`, `deepseek-ai/DeepSeek-V4-Flash-0731`
-- Note: ids are the models page's, 2026-09-21 — the catalog answers only a key. Sail's stable surface is the Responses API, and the FAQ says "Responses, Chat Completions, and Messages all work as expected"; a request may name a balanced or flex completion window to pay less and wait longer
+- Note: Select an ID from the current models page and confirm availability with authenticated /v1/models. The vendor documents Responses, Chat Completions and Messages APIs. A balanced or flex completion window trades latency for lower token prices; some models are flex-only. The listed examples use the default window.
 
 Try it from your terminal with your key in `SAIL_RESEARCH_API_KEY` — it goes from your machine to the vendor and nowhere else:
 
@@ -67,6 +67,6 @@ Each line is a change to what this page publishes, dated the day it reached the 
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; the full list, the Atom feed and the machinery are at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}

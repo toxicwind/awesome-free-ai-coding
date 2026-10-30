@@ -13,7 +13,7 @@ import re
 from datetime import date
 from html.parser import HTMLParser
 
-from .countries import country_name
+from .countries import country_name, quoted_codes
 from .models import Entry, PageCatalog, PageModel, access_words
 
 
@@ -144,18 +144,25 @@ def _differences(label: str, expected: set[str], actual: set[str]) -> list[str]:
     return out
 
 
+def catalog_sources(catalog: PageCatalog) -> list[str]:
+    return list(dict.fromkeys([c.source for c in catalog.conditions.values() if c.source]
+                              + [b.amount_source for b in catalog.budgets if b.amount_source]))
+
+
 def check_page_catalog(body: str, catalog: PageCatalog, condition_bodies: dict[str,str] | None = None,
                        today: date | None = None) -> list[str]:
     """Notes for a reviewer; a changed price does not end the whole service."""
     from .quotes import page_texts, quote_found
     page = _Markdown(body) if catalog.read.format == 'markdown' else _Page(body)
-    notes = []
+    notes = check_model_eligibility(catalog, {catalog.source: body, **(condition_bodies or {})})
     answer = page.answer(catalog.read.budgets_question)
     actual = _budgets(answer, catalog) if answer is not None else None
     expected = {key: b.amount for b in catalog.budgets
                 for key in (b.countries if b.scope == "countries" else [b.scope])}
     if all(b.quote for b in catalog.budgets):
-        pass  # Each scope's exact evidence is checked with catalog_quotes below.
+        for budget in catalog.budgets:
+            if budget.countries:
+                notes += _differences('quoted budget countries', set(budget.countries), quoted_codes(budget.quote))
     elif actual is None:
         notes.append("budgets unreadable in the configured FAQ answer")
     else:
@@ -209,6 +216,12 @@ def check_page_catalog(body: str, catalog: PageCatalog, condition_bodies: dict[s
     evidence = [" ".join(page.visible), *[answer for answers in page.faq.values() for answer in answers]]
     pages = [text for part in evidence for text in page_texts(part)]
     for field, quote in catalog_quotes(catalog):
+        if match := re.fullmatch(r'page_catalog\.budgets\[(\d+)\]\.amount_quote', field):
+            budget = catalog.budgets[int(match[1])]
+            source = body if budget.amount_source == catalog.source else (condition_bodies or {}).get(budget.amount_source)
+            if source is None or not quote_found(quote, page_texts(source)):
+                notes.append(f'{field} no longer evidenced on its own source')
+            continue
         if match := re.fullmatch(r'page_catalog\.conditions\.(.+)\.quote',field):
             condition=catalog.conditions[match[1]]
             if condition.source and condition.source != catalog.source:
@@ -223,13 +236,45 @@ def check_page_catalog(body: str, catalog: PageCatalog, condition_bodies: dict[s
         from .quotas import UNKNOWN_RECHECK_DAYS
         if ((today or date.today())-catalog.reviewed_on).days >= UNKNOWN_RECHECK_DAYS:
             notes.append('unpublished model hour prices or budget amounts need a fresh dated review')
+    for key, condition in catalog.conditions.items():
+        if condition.note and condition.reviewed_on:
+            from .quotas import UNKNOWN_RECHECK_DAYS
+            if ((today or date.today()) - condition.reviewed_on).days >= UNKNOWN_RECHECK_DAYS:
+                notes.append(f"page_catalog.conditions.{key}: manual eligibility needs a fresh dated review")
+    return notes
+
+
+def check_model_eligibility(catalog: PageCatalog, bodies: dict[str, str]) -> list[str]:
+    """A matching promotion sentence is not proof of a current free-plan cell."""
+    from .quotas import table_values, _numbers
+    notes = []
+    for model in catalog.models:
+        if model.expired or not model.condition:
+            continue
+        condition = catalog.conditions[model.condition]
+        if condition.kind != "free-session":
+            continue
+        binding = condition.eligibility
+        if not binding or not binding.plan_price or model.name not in binding.table.rows:
+            notes.append(f"{model.name} free-session eligibility has no model/plan binding for a zero-cost plan")
+            continue
+        body = bodies.get(condition.source)
+        values = [] if body is None else [value for name, value in table_values(body, binding.table)
+                                         if name == model.name]
+        if values != [binding.value]:
+            notes.append(f"{model.name} eligibility / {binding.plan}: changed, ambiguous or unreadable cell")
+        prices = [] if body is None else table_values(body, binding.plan_price)
+        if len(prices) != 1 or _numbers(prices[0][1]) != {0}:
+            notes.append(f"{model.name} eligibility / {binding.plan}: plan price is not established at zero")
     return notes
 
 
 def catalog_quotes(catalog: PageCatalog) -> list[tuple[str, str]]:
     return ([("page_catalog.limited_allowance", catalog.limited_allowance)] if catalog.limited_allowance else []) + [
         (f"page_catalog.budgets[{i}].quote", b.quote) for i, b in enumerate(catalog.budgets) if b.quote] + [
-        (f"page_catalog.conditions.{key}.quote", c.quote) for key, c in catalog.conditions.items()] + [
+        (f"page_catalog.budgets[{i}].amount_quote", b.amount_quote)
+        for i, b in enumerate(catalog.budgets) if b.amount_quote] + [
+        (f"page_catalog.conditions.{key}.quote", c.quote) for key, c in catalog.conditions.items() if c.quote] + [
         (f"page_catalog.notes[{i}]", quote) for i, quote in enumerate(catalog.notes)]
 
 
@@ -243,7 +288,7 @@ def funding(catalog: PageCatalog, model: PageModel) -> str:
     return catalog.conditions[model.condition].kind
 
 
-FUNDING_WORDS = {"wallet": "Shared daily credits", "unmetered": "Unmetered offer",
+FUNDING_WORDS = {"unmetered": "Unmetered offer",
                  "free-session": "Free session with conditions", "paid": "Paid plan",
                  "specialist": "Specialist tasks only", "expired": "Offer ended"}
 
@@ -252,9 +297,10 @@ PERIOD_WORDS = {"day": "Daily", "week": "Weekly", "month": "Monthly"}
 
 
 def funding_words(catalog: PageCatalog, model: PageModel) -> str:
-    if funding(catalog, model) == "wallet":
-        return f"Shared {PERIOD_WORDS[catalog.period].lower()} credits"
-    return FUNDING_WORDS[funding(catalog, model)]
+    kind = funding(catalog, model)
+    if kind == "wallet":
+        return f"Shared {PERIOD_WORDS[catalog.period].lower()} {catalog.unit.lower()}"
+    return FUNDING_WORDS[kind]
 
 
 def offer_access(catalog: PageCatalog, model: PageModel) -> str:
@@ -294,7 +340,7 @@ def catalog_words(catalog: PageCatalog, *, include_session: bool = True) -> str:
         offers.append(text)
     intro=(f"Credit-funded hour examples use the whole allowance for {scope} on one model; they are not added together. "
            if any(m.hours is not None for m in catalog.models)
-           else "Current model hour prices are not published; check your account's picker. ")
+           else "Check your account's picker for current model hour prices. ")
     out = (PERIOD_WORDS[catalog.period] + " allowance — " + "; ".join(budgets) + ".\n\n" + intro
            + "; ".join(offers) + ".")
     if catalog.limited_allowance and include_session:
@@ -302,11 +348,12 @@ def catalog_words(catalog: PageCatalog, *, include_session: bool = True) -> str:
     if catalog.conditions:
         conditions = []
         for key, condition in catalog.conditions.items():
+            text = f'“{condition.quote}”' if condition.quote else condition.note
             if condition.source and condition.source != catalog.source:
                 names = ", ".join(m.name for m in catalog.models if m.condition == key)
-                conditions.append(f'{names}: “{condition.quote}” (source: {condition.source}).')
+                conditions.append(f'{names}: {text} (source: {condition.source}).')
             else:
-                conditions.append(condition.quote)
+                conditions.append(condition.quote or condition.note)
         out += "\n\n" + " ".join(conditions)
     if catalog.notes:
         out += "\n\n" + " ".join(catalog.notes)
@@ -336,5 +383,6 @@ def family_condition(entry: Entry, family: str) -> str:
     if entry.page_catalog:
         for m in entry.page_catalog.models:
             if m.model and m.model.family == family and m.listed and m.condition and entry.page_catalog.conditions[m.condition].kind != 'wallet':
-                return entry.page_catalog.conditions[m.condition].quote
+                condition = entry.page_catalog.conditions[m.condition]
+                return condition.quote or condition.note
     return ""

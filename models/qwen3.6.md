@@ -1,9 +1,9 @@
 ---
 layout: default
-title: 'qwen3.6 free: 3 providers, limits and ids, verified 2026-10-08'
-description: qwen3.6 is served free by Hetzner Inference API, FreeInference (Harvard SEAS) and OVHcloud AI Endpoints. None asks for a card; OVHcloud AI Endpoints answers with no account at all. Each one's limits in the vendor's words, the ids to call and the day the published offer was last checked.
+title: 'qwen3.6 free: 3 providers, limits and ids, provider probes 2026-10-26'
+description: qwen3.6 is served free by Hetzner Inference API, FreeInference (Harvard SEAS) and OVHcloud AI Endpoints. None asks for a card; OVHcloud AI Endpoints answers with no account at all. Each one's limits in the vendor's words, the ids to call and the provider's last probe date.
 permalink: /models/qwen3.6/
-last_modified_at: 2026-10-08
+last_modified_at: 2026-10-26
 crumb: qwen3.6
 ---
 
@@ -11,7 +11,7 @@ crumb: qwen3.6
 
 # Where qwen3.6 is free
 
-**3 rows on the list serve `qwen3.6` free:** Hetzner Inference API, FreeInference (Harvard SEAS) and OVHcloud AI Endpoints. None asks for a card; OVHcloud AI Endpoints answers with no account at all. The published offers were checked on 2026-10-08 and are rechecked twice a week.
+**3 rows on the list serve `qwen3.6` free:** Hetzner Inference API, FreeInference (Harvard SEAS) and OVHcloud AI Endpoints. None asks for a card; OVHcloud AI Endpoints answers with no account at all. The providers' last scheduled probes were on 2026-10-26; their offers are rechecked twice a week.
 
 [Every free model](https://mvalentsev.github.io/awesome-free-ai-coding/models/) · [the whole list](https://mvalentsev.github.io/awesome-free-ai-coding/)
 
@@ -19,7 +19,7 @@ crumb: qwen3.6
 
 ### [Hetzner Inference API](https://mvalentsev.github.io/awesome-free-ai-coding/providers/hetzner-inference/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-08-30
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-08-30
 
 OpenAI-compatible API on Hetzner's own EU hardware, free for as long as the experiment runs
 
@@ -39,7 +39,7 @@ Free while the Inference API remains experimental; Hetzner says it will email ad
 
 ### [FreeInference (Harvard SEAS)](https://mvalentsev.github.io/awesome-free-ai-coding/providers/freeinference/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-09-05
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-09-05
 
 Harvard SEAS's MadSys Lab serving open models free to every account behind both an OpenAI-shaped and an Anthropic-shaped endpoint, with a documented Claude Code setup
 
@@ -59,9 +59,9 @@ No card. This is an experimental research service with capacity-dependent limits
 
 ### [OVHcloud AI Endpoints](https://mvalentsev.github.io/awesome-free-ai-coding/providers/ovh-ai-endpoints/)
 
-🔌 LLM APIs with free tier · no card · verified 2026-10-08 · listed since 2026-08-19
+🔌 LLM APIs with free tier · no card · last probe 2026-10-26 · listed since 2026-08-19
 
-EU-hosted serverless open-model API whose anonymous lane needs no signup, no key and no card (OpenAI-compatible), at two requests a minute per model shared by every anonymous caller
+EU-hosted serverless API for open models, with anonymous OpenAI-compatible access and no signup, key or card
 
 <details markdown="block">
 <summary>Provider-wide limits</summary>
@@ -86,11 +86,10 @@ The documentation attributes the anonymous cap to IP and model. Tests on 2026-09
 
 - [`qwen3.6-27b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.6-27b/) — free at Alibaba Cloud Model Studio (DashScope, international)
 - [`qwen3.6-35b-a3b`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.6-35b-a3b/) — free at Alibaba Cloud Model Studio (DashScope, international)
-- [`qwen3.6-max`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.6-max/) — free at Alibaba Cloud Model Studio (DashScope, international)
 - [`qwen3.6-plus`](https://mvalentsev.github.io/awesome-free-ai-coding/models/qwen3.6-plus/) — free at Alibaba Cloud Model Studio (DashScope, international)
 
 ---
 
-Generated from `registry.yaml` on 2026-10-08 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
+Generated from `registry.yaml` on 2026-10-29 and re-verified twice a week; every free model on the list is at <https://mvalentsev.github.io/awesome-free-ai-coding/models/>, and the full list, the Atom feed and the machinery at <https://github.com/mvalentsev/awesome-free-ai-coding>.
 
 {% endraw %}
