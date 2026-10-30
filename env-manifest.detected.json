@@ -1,0 +1,119 @@
+{
+  "product": "awesome-free-ai-coding",
+  "path": "/home/toxic/pens/ranch/products/awesome-free-ai-coding",
+  "files": 77,
+  "detected_at": "2026-10-30T06:11:03.173509Z",
+  "env_vars": {
+    "ABLITERATION_AI_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "AIHUBMIX_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "FIREWORKS_AI_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "FREEINFERENCE_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "IMPOSSIBL_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "MOARK_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "MODELSCOPE_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "OPENROUTER_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "OPPER_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "PATH": [
+      "src/freetier_radar/review.py"
+    ],
+    "REQUESTY_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "ROUTERPLEX_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "SILICONFLOW_CN_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "STANDARDCOMPUTE_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "TENCENT_TOKENHUB_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "THE_GRID_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "TOKEN_HARBOR_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "VERCEL_AI_GATEWAY_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "ZAI_GLM_API_KEY": [
+      "configs/claude-code.sh"
+    ],
+    "example": [
+      "configs/claude-code.sh",
+      "configs/codex/abliteration-ai.config.toml",
+      "configs/codex/aihubmix.config.toml",
+      "configs/codex/fireworks-ai.config.toml",
+      "configs/codex/hpc-ai.config.toml",
+      "configs/codex/mixlayer.config.toml",
+      "configs/codex/moark.config.toml",
+      "configs/codex/openrouter-free.config.toml",
+      "configs/codex/opper.config.toml",
+      "configs/codex/routeway.config.toml",
+      "configs/codex/token-harbor.config.toml",
+      "configs/codex/vercel-ai-gateway.config.toml",
+      "src/freetier_radar/conformance.py",
+      "src/freetier_radar/layout.py",
+      "src/freetier_radar/render.py",
+      "src/freetier_radar/review.py",
+      "tests/test_codex.py",
+      "tests/test_conformance.py",
+      "tests/test_render.py",
+      "tests/test_review.py"
+    ],
+    "filters": [
+      "src/freetier_radar/render.py"
+    ],
+    "get": [
+      "src/freetier_radar/announce.py",
+      "src/freetier_radar/discovery.py"
+    ],
+    "get_template": [
+      "src/freetier_radar/render.py"
+    ],
+    "read_text": [
+      "tests/test_conformance.py"
+    ],
+    "since": [
+      "tests/test_indexnow.py"
+    ],
+    "split": [
+      "tests/test_render.py"
+    ],
+    "update": [
+      "src/freetier_radar/conformance.py",
+      "src/freetier_radar/review.py",
+      "tests/test_bars.py"
+    ],
+    "var": [
+      "src/freetier_radar/conformance.py",
+      "src/freetier_radar/render.py",
+      "tests/test_conformance.py"
+    ],
+    "write_text": [
+      "tests/test_conformance.py"
+    ]
+  }
+}
