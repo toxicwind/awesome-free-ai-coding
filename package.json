@@ -1,0 +1,28 @@
+{
+  "name": "awesome-free-ai-coding",
+  "version": "1.0.0",
+  "description": "A curated list of 87 live free AI coding offers, verified twice weekly.",
+  "license": "MIT",
+  "author": "mvalentsev",
+  "type": "module",
+  "bin": {},
+  "scripts": {
+    "dev": "bun --hot run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check .",
+    "fmt": "biome format . --write",
+    "build": "bun build src/index.ts --outdir ./dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "^1.1.13",
+    "bun-types": "npm:@types/bun@latest",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "private": true
+}
