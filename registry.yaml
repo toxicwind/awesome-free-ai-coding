@@ -8322,10 +8322,10 @@ entries:
   category: trial
   url: https://www.infomaniak.com/en/hosting/ai-services
   source_urls:
-  - https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-estate-ai-services
+  - https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-Pens-ai-services
   - https://www.infomaniak.com/en/hosting/ai-services/prices
   card_required: true
-  offering: Swiss estate-cloud API over open-weight models with a one-month trial
+  offering: Swiss Pens-cloud API over open-weight models with a one-month trial
     wallet of one million credits, one credit per LLM token
   limits: '"One million free credits allow you to test the service without commitment
     for one month" and "The API is billed on a credit basis. Each request consumes
@@ -8350,7 +8350,7 @@ entries:
       rather than a standing lane, which is why the Free models column stays empty'
   probe:
     type: page-keywords
-    endpoint: https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-estate-ai-services
+    endpoint: https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-Pens-ai-services
     keywords:
     - One million free credits
     - A credit card is required to start using the API

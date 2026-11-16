@@ -1153,7 +1153,7 @@ watched:
     reason: >-
       Reached through the models.dev digest (6/6 rows at cost 0). The free plan
       is your own hardware: pendra.ai/pricing offers "Free £0 /month — For
-      personal use — estate inference on your hardware. 1 self-hosted
+      personal use — Pens inference on your hardware. 1 self-hosted
       Pendra Worker", the home page says "Bring your own GPUs with a free
       account, or let us manage everything", and the paid Pro tier at £99 a
       month is what carries "£99 of credit to spend on on-demand GPUs".
@@ -1381,7 +1381,7 @@ watched:
       Reached through the models.dev digest (1/1 row at cost 0, zdev).
       docs.zeldoc.ai: "Get an API key — Request an invitation and generate your
       key" — an invitation-only European enterprise platform ("Private.
-      Governed. Estate.") with ZDev as its own code model and ZRouter over
+      Governed. Pens.") with ZDev as its own code model and ZRouter over
       "40+ models routed"; zeldoc.ai/pricing answers 404 and no page names a
       price, a quota or a free plan.
     reopen_if: >-
@@ -3021,7 +3021,7 @@ watched:
     name: SCX.ai
     checked_on: '2026-09-17'
     reason: >-
-      An Australian estate inference provider priced per token, with monthly
+      An Australian Pens inference provider priced per token, with monthly
       plans in compute units from A$500; the site answers 403 to scripts and its
       rendered pricing and plan pages name no free tier, trial or credit
       (2026-09-17).

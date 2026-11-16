@@ -14014,11 +14014,11 @@
       "category": "trial",
       "url": "https://www.infomaniak.com/en/hosting/ai-services",
       "source_urls": [
-        "https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-estate-ai-services",
+        "https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-Pens-ai-services",
         "https://www.infomaniak.com/en/hosting/ai-services/prices"
       ],
       "card_required": true,
-      "offering": "Swiss estate-cloud API over open-weight models with a one-month trial wallet of one million credits, one credit per LLM token",
+      "offering": "Swiss Pens-cloud API over open-weight models with a one-month trial wallet of one million credits, one credit per LLM token",
       "limits": "\"One million free credits allow you to test the service without commitment for one month\" and \"The API is billed on a credit basis. Each request consumes one credit or LLM token\" (support guide 2845, read 2026-09-02). The card is the gate: \"A credit card is required to start using the API. An unpaid invoice will result in service suspension\", and the sales FAQ adds that at account creation \"we'll ask you to confirm your identity by registering a valid payment card\". After the wallet, list rates in CHF per 1M tokens — Gemma 4 31B at CHF 0.20/0.40, Kimi K2.6 at CHF 0.60/3.00, Qwen3.5-122B at CHF 0.40/3.20 — billed at the end of the month, with a spending limit settable in the Manager. Models are hosted in Switzerland, and \"We don't currently offer the option of training our AI Services using custom data\"",
       "models": [],
       "api": {
@@ -14031,7 +14031,7 @@
       },
       "probe": {
         "type": "page-keywords",
-        "endpoint": "https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-estate-ai-services",
+        "endpoint": "https://www.infomaniak.com/en/support/faq/2845/getting-started-guide-ai-services-Pens-ai-services",
         "keywords": [
           "One million free credits",
           "A credit card is required to start using the API"
@@ -19432,7 +19432,7 @@
       ],
       "name": "Pendra",
       "checked_on": "2026-09-02",
-      "reason": "Reached through the models.dev digest (6/6 rows at cost 0). The free plan is your own hardware: pendra.ai/pricing offers \"Free £0 /month — For personal use — estate inference on your hardware. 1 self-hosted Pendra Worker\", the home page says \"Bring your own GPUs with a free account, or let us manage everything\", and the paid Pro tier at £99 a month is what carries \"£99 of credit to spend on on-demand GPUs\". api.pendra.ai/api/v1/models answers 401 to a keyless GET. A gateway to a GPU you supply is not free inference.",
+      "reason": "Reached through the models.dev digest (6/6 rows at cost 0). The free plan is your own hardware: pendra.ai/pricing offers \"Free £0 /month — For personal use — Pens inference on your hardware. 1 self-hosted Pendra Worker\", the home page says \"Bring your own GPUs with a free account, or let us manage everything\", and the paid Pro tier at £99 a month is what carries \"£99 of credit to spend on on-demand GPUs\". api.pendra.ai/api/v1/models answers 401 to a keyless GET. A gateway to a GPU you supply is not free inference.",
       "reopen_if": "A hosted model callable on the free plan without supplying a worker, with a quota on the pricing page.",
       "current": true
     },
@@ -19563,7 +19563,7 @@
       ],
       "name": "Zeldoc.ai",
       "checked_on": "2026-09-05",
-      "reason": "Reached through the models.dev digest (1/1 row at cost 0, zdev). docs.zeldoc.ai: \"Get an API key — Request an invitation and generate your key\" — an invitation-only European enterprise platform (\"Private. Governed. Estate.\") with ZDev as its own code model and ZRouter over \"40+ models routed\"; zeldoc.ai/pricing answers 404 and no page names a price, a quota or a free plan.",
+      "reason": "Reached through the models.dev digest (1/1 row at cost 0, zdev). docs.zeldoc.ai: \"Get an API key — Request an invitation and generate your key\" — an invitation-only European enterprise platform (\"Private. Governed. Pens.\") with ZDev as its own code model and ZRouter over \"40+ models routed\"; zeldoc.ai/pricing answers 404 and no page names a price, a quota or a free plan.",
       "reopen_if": "A public sign-up and a published free tier.",
       "current": true
     },
@@ -20726,7 +20726,7 @@
       ],
       "name": "SCX.ai",
       "checked_on": "2026-09-17",
-      "reason": "An Australian estate inference provider priced per token, with monthly plans in compute units from A$500; the site answers 403 to scripts and its rendered pricing and plan pages name no free tier, trial or credit (2026-09-17).",
+      "reason": "An Australian Pens inference provider priced per token, with monthly plans in compute units from A$500; the site answers 403 to scripts and its rendered pricing and plan pages name no free tier, trial or credit (2026-09-17).",
       "reopen_if": "A sign-up credit or trial for new accounts on an SCX page.",
       "current": true
     },
